@@ -1,17 +1,17 @@
 //! This module contains functions related to files and directories
 //! It has functions to get the store and config paths
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use dirs::{home_dir, config_dir};
+use dirs::{config_dir, home_dir};
 
 const NAME: &str = "ynk";
 
 /// This function returns the path to the store directory
 /// ie the directory where all the files related to SuperPaste are stored
-/// 
+///
 /// # Panics
-/// 
+///
 /// This function panics if it fails to get the home directory
 pub fn get_store_path() -> PathBuf {
     let home_path = home_dir().expect("Failed to get home directory");
@@ -20,12 +20,12 @@ pub fn get_store_path() -> PathBuf {
 
 /// This function checks if the store and config directories exist
 /// If they don't, it creates them
-/// 
+///
 /// # Panics
-/// 
+///
 /// This function panics if it fails to create the directories
 /// or when it fails to get the necessary paths
-pub fn check_paths_exist(){
+pub fn check_paths_exist() {
     let store_path = get_store_path();
     if !store_path.exists() {
         std::fs::create_dir_all(store_path).expect("Failed to create store directory");
@@ -48,4 +48,23 @@ pub fn get_config_path() -> PathBuf {
 pub fn get_path(path: &str) -> PathBuf {
     let path_buf = get_store_path();
     path_buf.join(path)
+}
+
+/// This function essentially reads the file at the given path
+/// then returns the contents of the file as a vector of bytes
+///
+/// Doesn't check if the file exists or not
+/// nor verifies if the whole file was read or not
+pub fn read_file(path: &str) -> Vec<u8> {
+    let path_buf = PathBuf::from(path);
+    std::fs::read(path_buf).expect("Failed to read file")
+}
+
+/// Check the integrity of two files
+/// by comparing their contents
+pub fn check_integrity(og: &Path, new: &Path) -> bool {
+    let og_data = read_file(og.to_str().unwrap());
+    let new_data = read_file(new.to_str().unwrap());
+
+    og_data == new_data
 }

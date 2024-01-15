@@ -6,7 +6,7 @@ use std::{
 use hashbrown::HashMap;
 use ignore::{WalkBuilder, WalkState};
 
-use crate::db::EntryBuilder;
+use crate::db::{Entry, EntryBuilder};
 
 pub fn does_file_exist(path: &str) -> bool {
     let path_buf = PathBuf::from(path);
@@ -93,28 +93,21 @@ pub fn list_dir(
         .expect("Failed to extract paths from Mutex")
 }
 
-/// Sets the current working directory to the given path
-pub fn set_cwd(path: &str) {
-    let path_buf = PathBuf::from(path);
-    std::env::set_current_dir(path_buf).unwrap();
-}
-
-/// Gets the current working directory
-pub fn get_cwd() -> PathBuf {
-    std::env::current_dir().unwrap()
-}
-
 /// Constructs a vector of `EntryBuilder`s
 /// from a `HashMap` of `PathBuf`s
-pub fn construct_entry_builders(map: HashMap<String, PathBuf>) -> Vec<EntryBuilder> {
+pub fn construct_entry_builders(map: &HashMap<String, PathBuf>) -> Vec<EntryBuilder> {
     let mut builders = Vec::new();
 
     for (name, path) in map {
-        let builder = EntryBuilder::new(name, path.to_str().unwrap().to_string());
+        let builder = EntryBuilder::new(name, path.to_str().unwrap());
         builders.push(builder);
     }
 
     builders
+}
+
+pub fn wrap_from_entry(entry: &Entry) -> (String, PathBuf) {
+    (entry.name.clone(), PathBuf::from(entry.path.clone()))
 }
 
 /// Checks if the given path is a directory

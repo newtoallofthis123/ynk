@@ -4,6 +4,7 @@
         "hashbrown",
         "Iden",
         "noobscience",
-        "rusqlite"
+        "rusqlite",
+        "subdirs"
     ]
 }

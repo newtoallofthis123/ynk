@@ -41,8 +41,11 @@ pub struct EntryBuilder {
 }
 
 impl EntryBuilder {
-    pub fn new(name: String, path: String) -> Self {
-        Self { name, path }
+    pub fn new(name: &str, path: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            path: path.to_string(),
+        }
     }
 }
 
