@@ -223,6 +223,27 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
 
     let pb = Arc::new(Mutex::new(ProgressBar::new_spinner()));
 
+    if utils::is_git_repo(
+        &paste_config
+            .target
+            .clone()
+            .unwrap_or_else(|| ".".to_string()),
+    ) {
+        bunt::println!("{$blue}Target directory is a git repository{/$}");
+        bunt::println!("This may cause some problems with memory, which may cause your system to hang while the IO is being performed");
+        bunt::println!("{$yellow}Proceed with caution{/$}");
+
+        let choice = inquire::Confirm::new("Do you want to continue?")
+            .with_default(false)
+            .prompt()
+            .unwrap();
+
+        if !choice {
+            bunt::println!("Good choice! I'll definitely fix this in the future");
+            std::process::exit(0);
+        }
+    }
+
     let tasks = final_files.iter().map(|(name, path)| {
         let target_file = if let Some(target) = paste_config.target.clone() {
             if !PathBuf::from(target.clone()).exists() {

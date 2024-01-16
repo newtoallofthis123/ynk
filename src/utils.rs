@@ -150,3 +150,11 @@ pub fn _print_splash_screen() {
     bunt::println!("{$green}Y{$red}(a){/$}NK{/$}");
     bunt::println!("{$yellow}+-+-+-+{/$}");
 }
+
+/// Checks if a directory is a git repo
+pub fn is_git_repo(path: &str) -> bool {
+    let path = PathBuf::from(path);
+    let git_path = path.join(".git");
+
+    git_path.exists()
+}
