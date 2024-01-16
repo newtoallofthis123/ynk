@@ -69,7 +69,6 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             no_ignore: args.no_ignore,
             hidden: args.hidden,
             dry_run: args.dry_run,
-            clear_after: false,
         };
 
         handle_paste(paste_config, conn).await;
@@ -96,10 +95,20 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             no_ignore: args.no_ignore,
             hidden: args.hidden,
             dry_run: args.dry_run,
-            clear_after: true,
         };
 
         handle_paste(paste_config, conn).await;
+    } else if cmd == Command::Clear {
+        let choice = inquire::Confirm::new("Are you sure you want to clear all the copied files?")
+            .prompt()
+            .unwrap();
+
+        if !choice {
+            bunt::println!("Ok! {$red}Quitting{/$}");
+        }
+
+        bunt::println!("Clearing the indexed files");
+        db::delete_all(conn).expect("Unable to delete the indexes");
     }
 }
 
@@ -121,7 +130,6 @@ struct PasteBuilder {
     no_ignore: bool,
     hidden: bool,
     dry_run: bool,
-    clear_after: bool,
 }
 
 /// Private async function to handle the paste command

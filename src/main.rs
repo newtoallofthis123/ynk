@@ -41,6 +41,7 @@ pub enum Command {
     Paste,
     Pop,
     List,
+    Clear,
     Empty,
     Exit,
 }
@@ -52,7 +53,7 @@ async fn main() {
         Some(op) => op,
         None => inquire::Select::new(
             "Select a Command",
-            vec!["add", "paste", "list", "exit", "pop"],
+            vec!["add", "paste", "list", "clear", "pop", "exit"],
         )
         .prompt()
         .unwrap()
@@ -63,6 +64,7 @@ async fn main() {
         "add" => Command::Add,
         "paste" => Command::Paste,
         "pop" => Command::Pop,
+        "clear" => Command::Clear,
         "list" => Command::List,
         "exit" => Command::Exit,
         _ => Command::Empty,
