@@ -41,6 +41,7 @@ pub enum Command {
     Paste,
     Pop,
     List,
+    Delete,
     Clear,
     Empty,
     Exit,
@@ -66,6 +67,7 @@ async fn main() {
         "pop" => Command::Pop,
         "clear" => Command::Clear,
         "list" => Command::List,
+        "delete" => Command::Delete,
         "exit" => Command::Exit,
         _ => Command::Empty,
     };

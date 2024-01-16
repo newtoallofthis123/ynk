@@ -109,6 +109,38 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
 
         bunt::println!("Clearing the indexed files");
         db::delete_all(conn).expect("Unable to delete the indexes");
+    } else if cmd == Command::Delete {
+        let entries = db::get_all(conn).expect("Could not get entries from database");
+
+        let mut choices = entries
+            .iter()
+            .map(utils::wrap_from_entry)
+            .collect::<HashMap<_, _>>();
+
+        choices.insert("exit".to_string(), PathBuf::from("exit"));
+
+        let mut to_delete = Vec::new();
+
+        loop {
+            let choice = inquire::Select::new(
+                "Select a file to delete",
+                choices.iter().map(|(n, _)| n).collect::<Vec<_>>(),
+            )
+            .prompt()
+            .unwrap();
+
+            if choice == "exit" {
+                break;
+            }
+
+            to_delete.push(choices.get(choice).unwrap().clone());
+        }
+
+        to_delete.iter().for_each(|x| {
+            db::delete_entry(conn, x.to_str().unwrap()).expect("Unable to delete entry");
+        });
+
+        bunt::println!("Deleted {$green}{}{/$} files", to_delete.len());
     }
 }
 
