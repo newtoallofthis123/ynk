@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use chrono::{DateTime, Local};
 use rusqlite::Connection;
-use sea_query::{ColumnDef, Expr, Iden, Query, SqliteQueryBuilder, Table};
+use sea_query::{ColumnDef, Expr, Iden, Order, Query, SqliteQueryBuilder, Table};
 
 use crate::files::get_path;
 
@@ -265,10 +265,10 @@ pub fn does_exist(conn: &Connection, path: &str) -> Result<Entry, rusqlite::Erro
 ///
 /// * `usize` - The number of rows that were deleted
 /// * `rusqlite::Error` - The error that was encountered while deleting the entry from the database
-pub fn delete_entry(conn: &Connection, path: &str) -> Result<usize, rusqlite::Error> {
+pub fn delete_entry(conn: &Connection, id: i32) -> Result<usize, rusqlite::Error> {
     let query = Query::delete()
         .from_table(Store::Table)
-        .and_where(Expr::col(Store::Path).eq(path))
+        .and_where(Expr::col(Store::Id).eq(id))
         .to_string(SqliteQueryBuilder);
 
     conn.execute(&query, [])
@@ -296,4 +296,36 @@ pub fn delete_all(conn: &Connection) -> Result<usize, rusqlite::Error> {
         .to_string(SqliteQueryBuilder);
 
     conn.execute(&table_del, [])
+}
+
+pub fn pop_one(conn: &Connection) -> Result<Entry, rusqlite::Error> {
+    let query = Query::select()
+        .columns([
+            Store::Id,
+            Store::Name,
+            Store::Path,
+            Store::IsDir,
+            Store::AccessedAt,
+            Store::CreatedAt,
+        ])
+        .order_by(Store::Id, Order::Asc)
+        .from(Store::Table)
+        .limit(1)
+        .to_string(SqliteQueryBuilder);
+
+    conn.query_row(&query, [], |row| {
+        let accessed_at =
+            chrono::DateTime::from_str(row.get::<_, String>(4)?.as_str()).unwrap_or(Local::now());
+        let created_at =
+            chrono::DateTime::from_str(row.get::<_, String>(5)?.as_str()).unwrap_or(Local::now());
+
+        Ok(Entry {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            path: row.get(2)?,
+            is_dir: row.get(3)?,
+            accessed_at,
+            created_at,
+        })
+    })
 }

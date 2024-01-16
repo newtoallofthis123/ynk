@@ -3,6 +3,7 @@
         "canonicalize",
         "hashbrown",
         "Iden",
+        "indicatif",
         "noobscience",
         "rusqlite",
         "subdirs"
