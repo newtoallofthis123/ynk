@@ -295,9 +295,7 @@ async fn copy_paste(
         std::process::exit(1);
     }
 
-    if overwrite {
-        tokio::fs::write(target.clone(), contents.clone()).await?;
-    }
+    tokio::fs::write(target.clone(), contents.clone()).await?;
 
     let pb = pb.lock().await;
     pb.inc(1);
