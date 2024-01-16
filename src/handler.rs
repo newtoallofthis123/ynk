@@ -69,6 +69,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             no_ignore: args.no_ignore,
             hidden: args.hidden,
             dry_run: args.dry_run,
+            target: args.target,
         };
 
         handle_paste(paste_config, conn).await;
@@ -86,7 +87,13 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
 
         bunt::println!("Use {$green}ynk paste{/$} to paste the files");
     } else if cmd == Command::Pop {
-        let entry = db::pop_one(conn).expect("Could not pop entry from database");
+        let entry = match db::pop_one(conn) {
+            Ok(entry) => entry,
+            Err(e) => {
+                bunt::println!("{$red}Could not pop entry from database: {:?}{/$}", e);
+                std::process::exit(1);
+            }
+        };
 
         let paste_config = PasteBuilder {
             files: Some(vec![entry.name]),
@@ -95,6 +102,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             no_ignore: args.no_ignore,
             hidden: args.hidden,
             dry_run: args.dry_run,
+            target: args.target,
         };
 
         handle_paste(paste_config, conn).await;
@@ -162,6 +170,7 @@ struct PasteBuilder {
     no_ignore: bool,
     hidden: bool,
     dry_run: bool,
+    target: Option<String>,
 }
 
 /// Private async function to handle the paste command
@@ -219,7 +228,16 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
     let pb = Arc::new(Mutex::new(ProgressBar::new_spinner()));
 
     let tasks = final_files.iter().map(|(name, path)| {
-        let target_file = PathBuf::from(name); // Assuming name is a String or &str
+        let target_file = if let Some(target) = paste_config.target.clone() {
+            if !PathBuf::from(target.clone()).exists() {
+                bunt::println!("{$yellow}Target directory does not exist{/$}");
+                bunt::println!("Creating the directory");
+                std::fs::create_dir(&target).expect("Could not create directory");
+            }
+            PathBuf::from(target).join(name)
+        } else {
+            PathBuf::from(name)
+        };
         let pb_clone = Arc::clone(&pb);
 
         // Spawn a new asynchronous task for each file copy operation

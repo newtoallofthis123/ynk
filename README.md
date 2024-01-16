@@ -64,6 +64,7 @@ Moreover, it also by default respects your `.gitignore` file and doesn't copy ov
 - `-s` or `--strict`: This will make sure that any and all IO errors are reported. By default, it will ignore any IO errors and continue with the operation.
 - `-f` or `--force`: **TODO** For now, this does nothing. But in the future, this will make it overwrite any files or directories that already exist.
 - `--dry-run`: This will make it not actually copy over any files or directories. It will just print out what it would have done.
+- `-t` or `--target`: This will make it paste the files and directories in the specified directory. By default, it will paste it in the current directory.
 
 ### Popping
 
@@ -126,9 +127,10 @@ The db functionality is all abstracted away in a separate module, so it's easy t
 ## TODO
 
 - [ ] Add a `--force` option to overwrite files and directories.
-- [ ] Add a `--target` option to paste files and directories in a specific directory.
+- [x] Add a `--target` option to paste files and directories in a specific directory. (release 0.1.2)
 - [ ] Add config file support.
 - [ ] Add permanent storage option.
+- [ ] More explicit error handling.
 
 ## License
 

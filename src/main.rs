@@ -33,6 +33,9 @@ struct Args {
 
     #[arg(required = false, long)]
     dry_run: bool,
+
+    #[arg(required = false, short, long)]
+    target: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
