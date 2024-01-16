@@ -21,6 +21,7 @@ enum Store {
     Id,
     Name,
     Path,
+    IsDir,
     AccessedAt,
     CreatedAt,
 }
@@ -30,6 +31,7 @@ pub struct Entry {
     pub id: i32,
     pub name: String,
     pub path: String,
+    pub is_dir: bool,
     pub accessed_at: DateTime<Local>,
     pub created_at: DateTime<Local>,
 }
@@ -38,13 +40,15 @@ pub struct Entry {
 pub struct EntryBuilder {
     pub name: String,
     pub path: String,
+    pub is_dir: bool,
 }
 
 impl EntryBuilder {
-    pub fn new(name: &str, path: &str) -> Self {
+    pub fn new(name: &str, path: &str, is_dir: bool) -> Self {
         Self {
             name: name.to_string(),
             path: path.to_string(),
+            is_dir,
         }
     }
 }
@@ -62,6 +66,7 @@ pub fn prep_db(conn: &Connection) -> rusqlite::Result<usize, rusqlite::Error> {
         )
         .col(ColumnDef::new(Store::Name).string().not_null())
         .col(ColumnDef::new(Store::Path).string().not_null())
+        .col(ColumnDef::new(Store::IsDir).boolean().not_null())
         .col(ColumnDef::new(Store::AccessedAt).date_time().not_null())
         .col(ColumnDef::new(Store::CreatedAt).date_time().not_null())
         .build(SqliteQueryBuilder);
@@ -89,12 +94,14 @@ pub fn insert_into_db(conn: &Connection, eb: EntryBuilder) -> Result<Entry, rusq
         .columns([
             Store::Name,
             Store::Path,
+            Store::IsDir,
             Store::AccessedAt,
             Store::CreatedAt,
         ])
         .values_panic([
             eb.name.clone().into(),
             eb.path.clone().into(),
+            eb.is_dir.into(),
             time_now.clone().into(),
             time_now.into(),
         ])
@@ -116,6 +123,7 @@ pub fn insert_into_db(conn: &Connection, eb: EntryBuilder) -> Result<Entry, rusq
             Store::Id,
             Store::Name,
             Store::Path,
+            Store::IsDir,
             Store::AccessedAt,
             Store::CreatedAt,
         ])
@@ -126,14 +134,15 @@ pub fn insert_into_db(conn: &Connection, eb: EntryBuilder) -> Result<Entry, rusq
 
     conn.query_row(&query, [], |row| {
         let accessed_at =
-            chrono::DateTime::from_str(row.get::<_, String>(3)?.as_str()).unwrap_or(Local::now());
-        let created_at =
             chrono::DateTime::from_str(row.get::<_, String>(4)?.as_str()).unwrap_or(Local::now());
+        let created_at =
+            chrono::DateTime::from_str(row.get::<_, String>(5)?.as_str()).unwrap_or(Local::now());
 
         Ok(Entry {
             id: row.get(0)?,
             name: row.get(1)?,
             path: row.get(2)?,
+            is_dir: row.get(3)?,
             accessed_at,
             created_at,
         })
@@ -157,6 +166,7 @@ pub fn get_all(conn: &Connection) -> Result<Vec<Entry>, rusqlite::Error> {
             Store::Id,
             Store::Name,
             Store::Path,
+            Store::IsDir,
             Store::AccessedAt,
             Store::CreatedAt,
         ])
@@ -167,15 +177,16 @@ pub fn get_all(conn: &Connection) -> Result<Vec<Entry>, rusqlite::Error> {
 
     let entries = stmt
         .query_map([], |row| {
-            let accessed_at = chrono::DateTime::from_str(row.get::<_, String>(3)?.as_str())
+            let accessed_at = chrono::DateTime::from_str(row.get::<_, String>(4)?.as_str())
                 .unwrap_or(Local::now());
-            let created_at = chrono::DateTime::from_str(row.get::<_, String>(4)?.as_str())
+            let created_at = chrono::DateTime::from_str(row.get::<_, String>(5)?.as_str())
                 .unwrap_or(Local::now());
 
             Ok(Entry {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 path: row.get(2)?,
+                is_dir: row.get(3)?,
                 accessed_at,
                 created_at,
             })
@@ -214,6 +225,7 @@ pub fn does_exist(conn: &Connection, path: &str) -> Result<Entry, rusqlite::Erro
             Store::Id,
             Store::Name,
             Store::Path,
+            Store::IsDir,
             Store::AccessedAt,
             Store::CreatedAt,
         ])
@@ -224,16 +236,64 @@ pub fn does_exist(conn: &Connection, path: &str) -> Result<Entry, rusqlite::Erro
 
     conn.query_row(&query, [], |row| {
         let accessed_at =
-            chrono::DateTime::from_str(row.get::<_, String>(3)?.as_str()).unwrap_or(Local::now());
-        let created_at =
             chrono::DateTime::from_str(row.get::<_, String>(4)?.as_str()).unwrap_or(Local::now());
+        let created_at =
+            chrono::DateTime::from_str(row.get::<_, String>(5)?.as_str()).unwrap_or(Local::now());
 
         Ok(Entry {
             id: row.get(0)?,
             name: row.get(1)?,
             path: row.get(2)?,
+            is_dir: row.get(3)?,
             accessed_at,
             created_at,
         })
     })
+}
+
+/// Delete an entry from the database
+/// using the path of the file
+///
+/// # Arguments
+///
+/// * `conn` - A reference to the database connection
+/// * `path` - The path of the file
+///
+/// # Returns
+///
+/// A Result enum with the following variants:
+///
+/// * `usize` - The number of rows that were deleted
+/// * `rusqlite::Error` - The error that was encountered while deleting the entry from the database
+pub fn delete_entry(conn: &Connection, path: &str) -> Result<usize, rusqlite::Error> {
+    let query = Query::delete()
+        .from_table(Store::Table)
+        .and_where(Expr::col(Store::Path).eq(path))
+        .to_string(SqliteQueryBuilder);
+
+    conn.execute(&query, [])
+}
+
+/// Delete all the entries from the database
+/// Basically, it drops the table
+///
+/// Better than deleting all the entries one by one
+///
+/// # Arguments
+///
+/// * `conn` - A reference to the database connection
+///
+/// # Returns
+///
+/// A Result enum with the following variants:
+///
+/// * `usize` - The number of rows that were deleted
+/// * `rusqlite::Error` - The error that was encountered while deleting the entries from the database
+pub fn delete_all(conn: &Connection) -> Result<usize, rusqlite::Error> {
+    let table_del = Table::drop()
+        .table(Store::Table)
+        .if_exists()
+        .to_string(SqliteQueryBuilder);
+
+    conn.execute(&table_del, [])
 }

@@ -1,8 +1,14 @@
-use std::{path::PathBuf, vec};
+use std::{
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+    vec,
+};
 
 use clap::{command, Parser};
 use hashbrown::HashMap;
-use tokio::task;
+use indicatif::ProgressBar;
+use tokio::{sync::Mutex, task};
+use utils::{list_dir, ListDirConfig};
 
 mod db;
 mod files;
@@ -23,14 +29,20 @@ struct Args {
     #[arg(required = false)]
     files: Option<Vec<String>>,
 
-    #[arg(required = false, short, long, default_value_t = false)]
+    #[arg(required = false, short, long)]
     dir: bool,
 
-    #[arg(required = false, short, long, default_value_t = false)]
+    #[arg(required = false, short, long)]
     strict: bool,
 
-    #[arg(required = false, short, long, default_value_t = true)]
-    respect_ignore: bool,
+    #[arg(required = false, short, long)]
+    no_ignore: bool,
+
+    #[arg(required = false, long)]
+    hidden: bool,
+
+    #[arg(required = false, long)]
+    dry_run: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -40,16 +52,8 @@ enum Command {
     Empty,
 }
 
-/// Directly print a cool splash screen
-pub fn print_splash_screen() {
-    bunt::println!("{$blue}+-+-+-+-+-+-+{/$}");
-    bunt::println!("{$green}🗄️ Y(a)NK{/$}");
-    bunt::println!("{$yellow}+-+-+-+-+-+-+{/$}");
-}
-
 #[tokio::main]
 async fn main() {
-    print_splash_screen();
     let args = Args::parse();
     let cmd = match args.cmd.unwrap_or_default().as_str() {
         "" => Command::Add,
@@ -95,24 +99,10 @@ async fn main() {
                 std::process::exit(1);
             }
 
-            if utils::is_dir(x) || args.dir {
-                files.extend(
-                    utils::list_dir(x, args.respect_ignore, false, args.strict, true)
-                        .iter()
-                        .map(|y| {
-                            let file_name = y.to_str().unwrap().to_string();
-                            (
-                                utils::strip_weird_stuff(&file_name),
-                                y.canonicalize().unwrap().to_path_buf(),
-                            )
-                        }),
-                );
-            } else {
-                files.insert(
-                    utils::strip_weird_stuff(x),
-                    PathBuf::from(x).canonicalize().unwrap(),
-                );
-            }
+            files.insert(
+                utils::strip_weird_stuff(x),
+                PathBuf::from(x).canonicalize().unwrap(),
+            );
         });
 
         let entries = utils::construct_entry_builders(&files)
@@ -133,32 +123,66 @@ async fn main() {
             .map(utils::wrap_from_entry)
             .collect::<HashMap<_, _>>();
 
-        let tasks = files.iter().map(|(name, path)| {
+        static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
+        LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
+            filter_file: !args.dir,
+            full_path: false,
+            strict: args.strict,
+            hidden: args.hidden,
+            respect_ignore: !args.no_ignore,
+        });
+
+        let mut final_files = HashMap::new();
+
+        files.iter().for_each(|(name, path)| {
+            if path.is_dir() {
+                bunt::println!("{$yellow}Target is a directory{/$}");
+                let entries = list_dir(path.to_str().unwrap(), LIST_DIR_CONFIG.get().unwrap());
+                final_files.extend(entries.iter().map(|x| {
+                    let (name, path) = utils::wrap_from_path(path, x);
+                    (name, path)
+                }));
+            } else {
+                final_files.insert(name.clone(), path.clone());
+            }
+        });
+
+        let pb = Arc::new(Mutex::new(ProgressBar::new_spinner()));
+
+        let tasks = final_files.iter().map(|(name, path)| {
             let target_file = PathBuf::from(name); // Assuming name is a String or &str
+            let pb_clone = Arc::clone(&pb);
 
             // Spawn a new asynchronous task for each file copy operation
-            task::spawn(copy_paste(path.clone(), target_file.clone()))
+            task::spawn(copy_paste(
+                pb_clone,
+                path.clone(),
+                target_file.clone(),
+                args.dry_run,
+            ))
         });
 
         match futures::future::try_join_all(tasks).await {
             Ok(res) => {
-                let mut count = 0;
+                let mut count: u64 = 0;
 
                 res.iter().for_each(|x| {
                     if let Err(e) = x {
                         bunt::println!("{$red}Failed to paste file: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
-                    } else {
+                    } else{
                         count += 1;
                     }
                 });
-                bunt::println!("Pasted {$green}{}{/$} files", count);
 
-                if files.len() != count {
-                    bunt::println!(
-                        "{$red}Failed to paste {$white}{}{/$} files{/$}",
-                        files.len() - count
-                    );
+                match db::delete_all(&conn) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        bunt::println!("{$red}Failed to delete all entries from database: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
+                    }
                 }
+
+                let pb = pb.lock().await;
+                pb.finish_with_message(format!("Pasted {} files", count));
             }
             Err(e) => {
                 bunt::println!("{$red}Failed to paste files: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
@@ -167,12 +191,26 @@ async fn main() {
     }
 }
 
-async fn copy_paste(source: PathBuf, target: PathBuf) -> Result<(), std::io::Error> {
+/// The Async function in charge of copying and pasting files
+/// from the source to the target
+/// This is at the core of the program
+/// So, essentially, this function acts as an async and completely
+/// parallelized version of the `cp` command
+async fn copy_paste(
+    pb: Arc<Mutex<ProgressBar>>,
+    source: PathBuf,
+    target: PathBuf,
+    dry_run: bool,
+) -> Result<(), std::io::Error> {
     tokio::fs::create_dir_all(target.parent().unwrap()).await?;
 
-    let contents = tokio::fs::read(source).await?;
+    let contents = tokio::fs::read(source.clone()).await?;
 
-    tokio::fs::write(target.clone(), contents.clone()).await?;
+    if !dry_run {
+        tokio::fs::write(target.clone(), contents.clone()).await?;
+    }
+    let pb = pb.lock().await;
+    pb.inc(1);
 
     Ok(())
 }

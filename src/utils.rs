@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -11,6 +11,19 @@ use crate::db::{Entry, EntryBuilder};
 pub fn does_file_exist(path: &str) -> bool {
     let path_buf = PathBuf::from(path);
     path_buf.exists()
+}
+
+/// The Config struct that is used to configure the list_dir function
+/// Easier than setting all the arguments
+/// Plus, is usually OnceLocked
+/// so, it can be used in multiple threads
+#[derive(Debug, Clone)]
+pub struct ListDirConfig {
+    pub respect_ignore: bool,
+    pub full_path: bool,
+    pub strict: bool,
+    pub hidden: bool,
+    pub filter_file: bool,
 }
 
 /// Recursively lists all the files and directories in a directory
@@ -39,23 +52,18 @@ pub fn does_file_exist(path: &str) -> bool {
 /// # Returns
 ///
 /// A vector of `PathBuf`s
-pub fn list_dir(
-    dir_path: &str,
-    respect_ignore: bool,
-    full_path: bool,
-    strict: bool,
-    filter_file: bool,
-) -> Vec<PathBuf> {
+pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> Vec<PathBuf> {
     let paths = Arc::new(Mutex::new(Vec::new()));
 
     WalkBuilder::new(dir_path)
-        .hidden(respect_ignore) // Adjust this based on your requirements
+        .hidden(config.hidden)
+        .git_ignore(config.respect_ignore)
         .build_parallel()
         .run(|| {
             let paths = Arc::clone(&paths);
 
             Box::new(move |entry| {
-                let entry = if strict {
+                let entry = if config.strict {
                     match entry {
                         Ok(entry) => entry,
                         Err(err) => {
@@ -70,13 +78,13 @@ pub fn list_dir(
                     }
                 };
 
-                if filter_file && !entry.file_type().unwrap().is_file() {
+                if config.filter_file && !entry.file_type().unwrap().is_file() {
                     return WalkState::Continue;
                 }
 
                 let mut paths = paths.lock().unwrap();
 
-                if full_path {
+                if config.full_path {
                     paths.push(entry.path().canonicalize().unwrap());
                 } else {
                     paths.push(entry.path().to_path_buf());
@@ -99,7 +107,7 @@ pub fn construct_entry_builders(map: &HashMap<String, PathBuf>) -> Vec<EntryBuil
     let mut builders = Vec::new();
 
     for (name, path) in map {
-        let builder = EntryBuilder::new(name, path.to_str().unwrap());
+        let builder = EntryBuilder::new(name, path.to_str().unwrap(), path.is_dir());
         builders.push(builder);
     }
 
@@ -110,11 +118,15 @@ pub fn wrap_from_entry(entry: &Entry) -> (String, PathBuf) {
     (entry.name.clone(), PathBuf::from(entry.path.clone()))
 }
 
-/// Checks if the given path is a directory
-/// or not
-pub fn is_dir(path: &str) -> bool {
-    let path_buf = PathBuf::from(path);
-    path_buf.is_dir()
+pub fn wrap_from_path(root: &Path, path: &Path) -> (String, PathBuf) {
+    (
+        path.strip_prefix(root)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string(),
+        path.to_path_buf(),
+    )
 }
 
 pub fn strip_weird_stuff(path: &str) -> String {
