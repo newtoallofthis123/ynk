@@ -69,6 +69,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             no_ignore: args.no_ignore,
             hidden: args.hidden,
             dry_run: args.dry_run,
+            clear_after: false,
         };
 
         handle_paste(paste_config, conn).await;
@@ -88,8 +89,6 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
     } else if cmd == Command::Pop {
         let entry = db::pop_one(conn).expect("Could not pop entry from database");
 
-        db::delete_entry(conn, entry.id).expect("Could not delete entry from database");
-
         let paste_config = PasteBuilder {
             files: Some(vec![entry.name]),
             dir: args.dir,
@@ -97,6 +96,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             no_ignore: args.no_ignore,
             hidden: args.hidden,
             dry_run: args.dry_run,
+            clear_after: true,
         };
 
         handle_paste(paste_config, conn).await;
@@ -106,12 +106,12 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
 /// Private PasteBuilder struct
 /// which is used to emulate or mimic
 /// Arg struct
-/// 
+///
 /// This is a safe way to interact with the async paste
 /// handler without accidentally messing up the arguments
-/// 
+///
 /// # Note
-/// 
+///
 /// This takes up a bit more memory than the Arg struct
 /// but it is worth it in the long run
 struct PasteBuilder {
@@ -121,6 +121,7 @@ struct PasteBuilder {
     no_ignore: bool,
     hidden: bool,
     dry_run: bool,
+    clear_after: bool,
 }
 
 /// Private async function to handle the paste command
@@ -147,6 +148,10 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
         }
     }
 
+    files.iter().for_each(|(_, path)| {
+        db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
+    });
+
     static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
     LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
         filter_file: !paste_config.dir,
@@ -160,7 +165,7 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
 
     files.iter().for_each(|(name, path)| {
         if path.is_dir() {
-            bunt::println!("{$yellow}Target is a directory{/$}");
+            // bunt::println!("{$yellow}Target is a directory{/$}");
             let entries = list_dir(path.to_str().unwrap(), LIST_DIR_CONFIG.get().unwrap());
             final_files.extend(entries.iter().map(|x| {
                 let (name, path) = utils::wrap_from_path(path, x);
@@ -197,13 +202,6 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
                         count += 1;
                     }
                 });
-
-            match db::delete_all(conn) {
-                Ok(_) => {}
-                Err(e) => {
-                    bunt::println!("{$red}Failed to delete all entries from database: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
-                }
-            }
 
             let pb = pb.lock().await;
             pb.finish_with_message(format!("Pasted {} files", count));

@@ -265,10 +265,10 @@ pub fn does_exist(conn: &Connection, path: &str) -> Result<Entry, rusqlite::Erro
 ///
 /// * `usize` - The number of rows that were deleted
 /// * `rusqlite::Error` - The error that was encountered while deleting the entry from the database
-pub fn delete_entry(conn: &Connection, id: i32) -> Result<usize, rusqlite::Error> {
+pub fn delete_entry(conn: &Connection, path: &str) -> Result<usize, rusqlite::Error> {
     let query = Query::delete()
         .from_table(Store::Table)
-        .and_where(Expr::col(Store::Id).eq(id))
+        .and_where(Expr::col(Store::Path).eq(path))
         .to_string(SqliteQueryBuilder);
 
     conn.execute(&query, [])
