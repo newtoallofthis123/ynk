@@ -142,3 +142,11 @@ pub fn strip_weird_stuff(path: &str) -> String {
 
     path
 }
+
+/// Directly print a cool splash screen
+/// Still a WIP
+pub fn _print_splash_screen() {
+    bunt::println!("{$blue}+-+-+-+{/$}");
+    bunt::println!("{$green}Y{$red}(a){/$}NK{/$}");
+    bunt::println!("{$yellow}+-+-+-+{/$}");
+}
