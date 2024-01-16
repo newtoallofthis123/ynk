@@ -13,6 +13,27 @@ use crate::{
     Args, Command,
 };
 
+/// Private PasteBuilder struct
+/// which is used to emulate or mimic
+/// Arg struct
+///
+/// This is a safe way to interact with the async paste
+/// handler without accidentally messing up the arguments
+///
+/// # Note
+///
+/// This takes up a bit more memory than the Arg struct
+/// but it is worth it in the long run
+struct PasteBuilder {
+    files: Option<Vec<String>>,
+    dir: bool,
+    strict: bool,
+    no_ignore: bool,
+    hidden: bool,
+    overwrite: bool,
+    target: Option<String>,
+}
+
 pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
     let mut files: HashMap<String, PathBuf> = HashMap::new();
 
@@ -68,7 +89,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             strict: args.strict,
             no_ignore: args.no_ignore,
             hidden: args.hidden,
-            dry_run: args.dry_run,
+            overwrite: args.overwrite,
             target: args.target,
         };
 
@@ -98,10 +119,10 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
         let paste_config = PasteBuilder {
             files: Some(vec![entry.name]),
             dir: args.dir,
-            strict: false,
+            strict: args.strict,
             no_ignore: args.no_ignore,
             hidden: args.hidden,
-            dry_run: args.dry_run,
+            overwrite: args.overwrite,
             target: args.target,
         };
 
@@ -152,27 +173,6 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
     }
 }
 
-/// Private PasteBuilder struct
-/// which is used to emulate or mimic
-/// Arg struct
-///
-/// This is a safe way to interact with the async paste
-/// handler without accidentally messing up the arguments
-///
-/// # Note
-///
-/// This takes up a bit more memory than the Arg struct
-/// but it is worth it in the long run
-struct PasteBuilder {
-    files: Option<Vec<String>>,
-    dir: bool,
-    strict: bool,
-    no_ignore: bool,
-    hidden: bool,
-    dry_run: bool,
-    target: Option<String>,
-}
-
 /// Private async function to handle the paste command
 async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
     let mut files = db::get_all(conn)
@@ -196,10 +196,6 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
             files = temp_files;
         }
     }
-
-    files.iter().for_each(|(_, path)| {
-        db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
-    });
 
     static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
     LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
@@ -245,7 +241,7 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
             pb_clone,
             path.clone(),
             target_file.clone(),
-            paste_config.dry_run,
+            paste_config.overwrite,
         ))
     });
 
@@ -263,6 +259,10 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
 
             let pb = pb.lock().await;
             pb.finish_with_message(format!("Pasted {} files", count));
+
+            files.iter().for_each(|(_, path)| {
+                db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
+            });
         }
         Err(e) => {
             bunt::println!("{$red}Failed to paste files: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
@@ -279,15 +279,26 @@ async fn copy_paste(
     pb: Arc<Mutex<ProgressBar>>,
     source: PathBuf,
     target: PathBuf,
-    dry_run: bool,
+    overwrite: bool,
 ) -> Result<(), std::io::Error> {
     tokio::fs::create_dir_all(target.parent().unwrap()).await?;
 
     let contents = tokio::fs::read(source.clone()).await?;
 
-    if !dry_run {
+    if target.exists() && !overwrite {
+        bunt::println!(
+            "File {$yellow}{}{/$} already exists",
+            target.to_str().unwrap()
+        );
+
+        bunt::println!("Use the {$green}--overwrite{/$} flag to overwrite the any and all files");
+        std::process::exit(1);
+    }
+
+    if overwrite {
         tokio::fs::write(target.clone(), contents.clone()).await?;
     }
+
     let pb = pb.lock().await;
     pb.inc(1);
 

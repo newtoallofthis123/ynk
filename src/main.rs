@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{command, Parser};
 mod db;
 mod files;
@@ -31,8 +33,8 @@ struct Args {
     #[arg(required = false, long)]
     hidden: bool,
 
-    #[arg(required = false, long)]
-    dry_run: bool,
+    #[arg(required = false, short, long)]
+    overwrite: bool,
 
     #[arg(required = false, short, long)]
     target: Option<String>,
@@ -50,30 +52,49 @@ pub enum Command {
     Exit,
 }
 
+impl Command {
+    fn from(cmd: &str) -> Command {
+        match cmd {
+            "add" => Command::Add,
+            "paste" => Command::Paste,
+            "pop" => Command::Pop,
+            "clear" => Command::Clear,
+            "list" => Command::List,
+            "delete" => Command::Delete,
+            "exit" => Command::Exit,
+            _ => Command::Empty,
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
-    let cmd_arg = match args.clone().cmd {
-        Some(op) => op,
-        None => inquire::Select::new(
-            "Select a Command",
-            vec!["add", "paste", "list", "clear", "pop", "exit"],
-        )
-        .prompt()
-        .unwrap()
-        .to_string(),
+
+    let temp_arg = args.clone();
+    let mut cmd = match args.clone().cmd {
+        Some(cmd) => Command::from(&cmd),
+        None => {
+            bunt::println!("{$yellow}Interactive Mode{/$}");
+            get_cmd()
+        }
     };
 
-    let cmd = match cmd_arg.as_str() {
-        "add" => Command::Add,
-        "paste" => Command::Paste,
-        "pop" => Command::Pop,
-        "clear" => Command::Clear,
-        "list" => Command::List,
-        "delete" => Command::Delete,
-        "exit" => Command::Exit,
-        _ => Command::Empty,
-    };
+    if cmd == Command::Empty {
+        if let Some(cmd) = temp_arg.cmd {
+            if PathBuf::from(cmd.clone()).exists() {
+                bunt::println!("You seem to have entered a {$red}file path{/$}");
+                bunt::println!("You can use {$blue}ynk add {}{/$} to add to the store", cmd);
+                std::process::exit(0);
+            }
+        } else {
+            bunt::println!(
+                "{$red}Invalid Command{/$} \"{$green}{}{/$}\"",
+                &temp_arg.cmd.unwrap()
+            );
+        }
+        cmd = get_cmd();
+    }
 
     // check all the paths
     files::check_paths_exist();
@@ -83,4 +104,15 @@ async fn main() {
     db::prep_db(&conn).expect("Could not prepare database");
 
     handler::handler(cmd, args, &conn).await;
+}
+
+fn get_cmd() -> Command {
+    let choice = inquire::Select::new(
+        "Select a Command",
+        vec!["add", "paste", "list", "clear", "pop", "exit"],
+    )
+    .prompt()
+    .unwrap();
+
+    Command::from(choice)
 }
