@@ -32,6 +32,7 @@ struct PasteBuilder {
     hidden: bool,
     overwrite: bool,
     target: Option<String>,
+    delete: bool,
 }
 
 pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
@@ -91,6 +92,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             hidden: args.hidden,
             overwrite: args.overwrite,
             target: args.target,
+            delete: args.delete,
         };
 
         handle_paste(paste_config, conn).await;
@@ -124,6 +126,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             hidden: args.hidden,
             overwrite: args.overwrite,
             target: args.target,
+            delete: args.delete,
         };
 
         handle_paste(paste_config, conn).await;
@@ -181,21 +184,12 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
         .map(utils::wrap_from_entry)
         .collect::<HashMap<_, _>>();
 
-    if paste_config.files.is_some() {
-        let temp_files = files
-            .iter()
-            .filter(|(name, _)| paste_config.files.as_ref().unwrap().contains(name))
-            .map(|(name, path)| (name.clone(), path.clone()))
-            .collect::<HashMap<_, _>>();
-
-        if temp_files.is_empty() {
-            bunt::println!("{$yellow}Specified files do not exist{/$}");
-            bunt::println!("use {$green}ynk add{/$} to add files to the store");
-            std::process::exit(1);
-        } else {
-            files = temp_files;
-        }
-    }
+    let user_target = paste_config
+        .files
+        .unwrap_or_else(|| vec![".".to_string()])
+        .first()
+        .unwrap()
+        .clone();
 
     static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
     LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
@@ -221,6 +215,15 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
         }
     });
 
+    if let Some(to_get) = paste_config.target.clone() {
+        files = db::get_all(conn)
+            .expect("Could not get entries from database")
+            .iter()
+            .filter(|x| x.path.starts_with(to_get.as_str()))
+            .map(utils::wrap_from_entry)
+            .collect::<HashMap<_, _>>();
+    }
+
     let pb = Arc::new(Mutex::new(ProgressBar::new_spinner()));
 
     if utils::is_git_repo(
@@ -245,16 +248,12 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
     }
 
     let tasks = final_files.iter().map(|(name, path)| {
-        let target_file = if let Some(target) = paste_config.target.clone() {
-            if !PathBuf::from(target.clone()).exists() {
-                bunt::println!("{$yellow}Target directory does not exist{/$}");
-                bunt::println!("Creating the directory");
-                std::fs::create_dir(&target).expect("Could not create directory");
-            }
-            PathBuf::from(target).join(name)
-        } else {
-            PathBuf::from(name)
-        };
+        if !PathBuf::from(user_target.clone()).exists() {
+            bunt::println!("{$yellow}Target directory does not exist{/$}");
+            bunt::println!("Creating the directory");
+            std::fs::create_dir(&user_target).expect("Could not create directory");
+        }
+        let target_file = PathBuf::from(user_target.clone()).join(name);
         let pb_clone = Arc::clone(&pb);
 
         // Spawn a new asynchronous task for each file copy operation
@@ -282,7 +281,19 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
             pb.finish_with_message(format!("Pasted {} files", count));
 
             files.iter().for_each(|(_, path)| {
+                let redundant_entry = match db::does_exist(conn, path.to_str().unwrap()){
+                    Ok(entry) => entry,
+                    Err(e) => {
+                        bunt::println!("{$red}Failed to check if entry exists: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
+                        std::process::exit(1);
+                    }
+                };
+
                 db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
+            
+                if !paste_config.delete{
+                    db::insert_into_db(conn, utils::builder_from_entry(&redundant_entry)).expect("Could not insert into database");
+                }
             });
         }
         Err(e) => {

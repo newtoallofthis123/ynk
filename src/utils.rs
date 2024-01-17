@@ -129,6 +129,14 @@ pub fn wrap_from_path(root: &Path, path: &Path) -> (String, PathBuf) {
     )
 }
 
+pub fn builder_from_entry(entry: &Entry) -> EntryBuilder {
+    EntryBuilder{
+        name: entry.name.clone(),
+        path: entry.path.clone(),
+        is_dir: entry.is_dir,
+    }
+}
+
 pub fn strip_weird_stuff(path: &str) -> String {
     let mut path = path.to_string();
 

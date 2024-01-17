@@ -65,6 +65,7 @@ Moreover, it also by default respects your `.gitignore` file and doesn't copy ov
 - `-f` or `--force`: **TODO** For now, this does nothing. But in the future, this will make it overwrite any files or directories that already exist.
 - `--dry-run`: This will make it not actually copy over any files or directories. It will just print out what it would have done.
 - `-t` or `--target`: This will make it paste the files and directories in the specified directory. By default, it will paste it in the current directory.
+- `-d` or `--delete`: This will make it delete the files and directories from stored in the database after pasting them. Not from the disk.
 
 ### Popping
 
