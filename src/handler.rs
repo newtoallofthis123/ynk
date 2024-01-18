@@ -35,6 +35,27 @@ struct PasteBuilder {
     delete: bool,
 }
 
+/// The main handler function that handles all the commands
+/// and the arguments
+/// 
+/// It sort of acts like a router
+/// sending the commands to their respective handlers
+/// 
+/// # Arguments
+/// 
+/// * `cmd` - The command to be handled
+/// * `args` - The arguments to be handled
+/// * `conn` - The database connection
+/// 
+/// # Note
+/// 
+/// This function is async because the paste command is async.
+/// 
+/// # Panics
+/// 
+/// This function panics if the database connection is not valid
+/// and also if at any point, an error occurs while handling the
+/// paste command
 pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
     let mut files: HashMap<String, PathBuf> = HashMap::new();
 
