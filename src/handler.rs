@@ -149,23 +149,25 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             .map(utils::wrap_from_entry)
             .collect::<HashMap<_, _>>();
 
-        choices.insert("exit".to_string(), PathBuf::from("exit"));
+        choices.insert("Proceed".to_string(), PathBuf::from("_______"));
 
         let mut to_delete = Vec::new();
+        let mut delete_choices = choices.iter().map(|(n, _)| n.clone()).collect::<Vec<_>>();
 
         loop {
             let choice = inquire::Select::new(
                 "Select a file to delete",
-                choices.iter().map(|(n, _)| n).collect::<Vec<_>>(),
+                delete_choices.clone()
             )
             .prompt()
             .unwrap();
 
-            if choice == "exit" {
+            if choice == "Proceed" {
                 break;
             }
 
-            to_delete.push(choices.get(choice).unwrap().clone());
+            to_delete.push(choices.get(&choice).unwrap().clone());
+            delete_choices.remove(delete_choices.iter().position(|x| x == &choice).unwrap());
         }
 
         to_delete.iter().for_each(|x| {
