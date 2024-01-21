@@ -137,6 +137,8 @@ pub fn builder_from_entry(entry: &Entry) -> EntryBuilder {
     }
 }
 
+/// Strip weird stuff from a path
+/// like ./ and /
 pub fn strip_weird_stuff(path: &str) -> String {
     let mut path = path.to_string();
 
