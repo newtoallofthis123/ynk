@@ -39,8 +39,8 @@ struct Args {
     #[arg(required = false, short, long, help="Delete the file from the store, but not from the disk")]
     delete: bool,
 
-    #[arg(required = false, short, long, help="The name of the file from the store to be pasted")]
-    target: Option<String>,
+    #[arg(required = false, short, long, help="The Range of files to be pasted")]
+    range: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

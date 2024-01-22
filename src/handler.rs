@@ -9,7 +9,7 @@ use tokio::{sync::Mutex, task};
 
 use crate::{
     db,
-    utils::{self, does_file_exist, list_dir, ListDirConfig},
+    utils::{self, does_file_exist, list_dir, ListDirConfig, parse_range},
     Args, Command,
 };
 
@@ -31,8 +31,9 @@ struct PasteBuilder {
     no_ignore: bool,
     hidden: bool,
     overwrite: bool,
-    target: Option<String>,
     delete: bool,
+    range: Option<String>,
+    specific: Option<String>,
 }
 
 /// The main handler function that handles all the commands
@@ -112,8 +113,9 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             no_ignore: args.no_ignore,
             hidden: args.hidden,
             overwrite: args.overwrite,
-            target: args.target,
             delete: args.delete,
+            range: args.range,
+            specific: None
         };
 
         handle_paste(paste_config, conn).await;
@@ -124,9 +126,11 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
         let entries = db::get_all(conn).expect("Could not get entries from database");
 
         bunt::println!("{$green}{}{/$} files in store", entries.len());
+        let mut count = 0;
 
         entries.iter().for_each(|x| {
-            bunt::println!("{$blue}{}{/$}", x.path);
+            bunt::println!("{}. {$blue}{}{/$}", count, x.path);
+            count += 1;
         });
 
         bunt::println!("Use {$green}ynk paste{/$} to paste the files");
@@ -140,14 +144,15 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
         };
 
         let paste_config = PasteBuilder {
-            files: Some(vec![entry.name]),
+            files: args.files,
             dir: args.dir,
             strict: args.strict,
             no_ignore: args.no_ignore,
             hidden: args.hidden,
             overwrite: args.overwrite,
-            target: args.target,
             delete: args.delete,
+            range: args.range,
+            specific: Some(entry.path),
         };
 
         handle_paste(paste_config, conn).await;
@@ -201,11 +206,55 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
 
 /// Private async function to handle the paste command
 async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
-    let mut files = db::get_all(conn)
+    println!("{:?}", paste_config.hidden);
+
+    let s_files = db::get_all(conn)
         .expect("Could not get entries from database")
         .iter()
         .map(utils::wrap_from_entry)
+        .filter(|(_, path)| {
+            if paste_config.specific.is_some() {
+                println!("{}", path.to_str().unwrap() == paste_config.specific.as_ref().unwrap());
+                return path.to_str().unwrap() == paste_config.specific.as_ref().unwrap();
+            }
+            true
+        })
         .collect::<HashMap<_, _>>();
+
+    let files = if paste_config.range.is_some(){
+        let range = paste_config.range.unwrap();
+        if range.contains(':'){
+            let range_no = range.split(':').collect::<Vec<&str>>();
+            if range_no.len() != 2 || range_no.len() > s_files.len(){
+                bunt::println!("{$red}Invalid range{/$}");
+                std::process::exit(1);
+            } else if range_no[0].parse::<usize>().is_err() || range_no[1].parse::<usize>().is_err(){
+                bunt::println!("{$red}Invalid range{/$}");
+                std::process::exit(1);
+            }
+        let (start, end) = parse_range(&range);
+        s_files
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i >= start && *i <= end)
+            .map(|(_, (n, p))| (n.clone(), p.clone()))
+            .collect::<HashMap<_, _>>()
+        } else{
+            let index = range.parse::<usize>().unwrap();
+            if index > s_files.len(){
+                bunt::println!("{$red}Invalid range{/$}");
+                std::process::exit(1);
+            }
+            s_files
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i == index)
+                .map(|(_, (n, p))| (n.clone(), p.clone()))
+                .collect::<HashMap<_, _>>()
+        }
+    } else{
+        s_files
+    };
 
     let user_target = paste_config
         .files
@@ -227,7 +276,6 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
 
     files.iter().for_each(|(name, path)| {
         if path.is_dir() {
-            // bunt::println!("{$yellow}Target is a directory{/$}");
             let entries = list_dir(path.to_str().unwrap(), LIST_DIR_CONFIG.get().unwrap());
             final_files.extend(entries.iter().map(|x| {
                 let (name, path) = utils::wrap_from_path(path, x);
@@ -238,22 +286,10 @@ async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
         }
     });
 
-    if let Some(to_get) = paste_config.target.clone() {
-        files = db::get_all(conn)
-            .expect("Could not get entries from database")
-            .iter()
-            .filter(|x| x.path.starts_with(to_get.as_str()))
-            .map(utils::wrap_from_entry)
-            .collect::<HashMap<_, _>>();
-    }
-
     let pb = Arc::new(Mutex::new(ProgressBar::new_spinner()));
 
     if utils::is_git_repo(
-        &paste_config
-            .target
-            .clone()
-            .unwrap_or_else(|| ".".to_string()),
+        &user_target
     ) {
         bunt::println!("{$blue}Target directory is a git repository{/$}");
         bunt::println!("This may cause some problems with memory, which may cause your system to hang while the IO is being performed");
