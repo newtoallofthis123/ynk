@@ -151,7 +151,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             hidden: args.hidden,
             overwrite: args.overwrite,
             delete: args.delete,
-            range: args.range,
+            range: None,
             specific: Some(entry.path),
         };
 

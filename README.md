@@ -52,8 +52,11 @@ It checks the integrity of the path, converts it into a suitable format, and the
 
 Pasting is also quite simple. Just use the `paste` command. Here is where you get to essentially tweak what you want to copy over. You can do this with the following options
 
-> **WARNING**: Paste will paste all the files and directories in the current directory. So make sure that you are in the correct directory before pasting.
-More customization options will be added in the future.
+> **WARNING**: Paste will paste all the files and directories in the store. If you want to specify a specific entry, use `ynk list`, get the index of the entry, and then use `ynk paste -r <index>`, or just use `ynk pop`.
+
+```bash
+ynk paste [-n|--no-ignore] [--hidden] [-s|--strict] [-f|--force] [--dry-run] [-r|--range <start:end>] [-d|--delete] FOLDER_NAME
+```
 
 Before passing in the options, know that the `paste` command is highly optimized for IO tasks. All the way from reading the directory structure (walking the directory tree) to reading and writing files. It uses a lot of threads to do this. So it's very fast.
 
@@ -64,15 +67,18 @@ Moreover, it also by default respects your `.gitignore` file and doesn't copy ov
 - `-s` or `--strict`: This will make sure that any and all IO errors are reported. By default, it will ignore any IO errors and continue with the operation.
 - `-f` or `--force`: **TODO** For now, this does nothing. But in the future, this will make it overwrite any files or directories that already exist.
 - `--dry-run`: This will make it not actually copy over any files or directories. It will just print out what it would have done.
-- `-t` or `--target`: This will make it paste the files and directories in the specified directory. By default, it will paste it in the current directory.
+- `-r` or `--range`: This will make it paste only a range of files and directories. This is useful when you want to paste only a few files and directories from a large list. You can specify the range in the following format: `start:end`.
+It is not the smartest yet, so make sure that you specify the range correctly. It will throw an error if the range is invalid.
 - `-d` or `--delete`: This will make it delete the files and directories from stored in the database after pasting them. Not from the disk.
 
 ### Popping
 
+This is the most common use case.
 You can pop the last file or directory that you copied. This will remove it from the database and paste all the files and directories in the current directory.
+The same options as the `paste` command, except the `--range` option, are available for the `pop` command.
 
 ```bash
-yank pop
+yank pop [-n|--no-ignore] [--hidden] [-s|--strict] [-f|--force] [--dry-run] [-d|--delete] FOLDER_NAME
 ```
 
 ### Listing
@@ -106,6 +112,17 @@ This would store something like this in the database:
 | 1  | README.md| /home/user/README.md | 2020-01-01 00:00:00 |
 
 So, when you paste, it would basically just read the entire file, store it in temporary memory, and then write it to the current directory. So it's not really a `cp` or `mv` because it doesn't actually move the file. It just reads and writes it.
+
+## Stuff Ynk can do that `cp` can't
+
+- It can respect your `.gitignore` file. So if you have a file or directory that is ignored by git, it won't be copied over.
+- Have a consistent store of files and directories that you copy over. You can list them, delete them, and paste them whenever you want.
+- Essentially, it's a clipboard for your files and directories.
+- It's fast. It uses multiple threads to do IO operations, so it's very fast.
+- Especially useful for handling very large projects with dependencies, think `node_modules` or `target` directories.
+- You can essentially combine multiple `cp` commands into one. You can copy over multiple files and directories, and then paste them all at once, in fact this is the recommended way to use ynk.
+- Hey, it's Rust. So it's fast and safe.
+- Essentially, it's a GUI like feature in the terminal.
 
 ## What about the pasting?
 
