@@ -1,10 +1,13 @@
 use std::path::PathBuf;
 
 use clap::{command, Parser};
+use config::{get_config_from_file, write_default_config, ConstructedArgs};
+use files::get_config_path;
 mod db;
 mod files;
 mod handler;
 mod utils;
+mod config;
 
 #[derive(Parser, Debug, Clone)]
 #[command(name="ynk", author="Ishan Joshi <noobscience@duck.com>", version, about="Copy paste files in the terminal", long_about = None)]
@@ -15,31 +18,58 @@ mod utils;
 /// If the user does not pass in the command name, then the program
 /// will prompt the user to enter the command name
 struct Args {
-    #[arg(required = false, help="The command to be executed")]
+    #[arg(required = false, help = "The command to be executed")]
     cmd: Option<String>,
 
-    #[arg(required = false, help="The name of the files / directories to be added to the store")]
+    #[arg(
+        required = false,
+        help = "The name of the files / directories to be added to the store"
+    )]
     files: Option<Vec<String>>,
 
-    #[arg(required = false, long, help="Explicitly specify that the given path is a directory")]
+    #[arg(
+        required = false,
+        long,
+        help = "Explicitly specify that the given path is a directory"
+    )]
     dir: bool,
 
-    #[arg(required = false, short, long, help="Throw any and all IO errors")]
+    #[arg(required = false, short, long, help = "Throw any and all IO errors")]
     strict: bool,
 
-    #[arg(required = false, short, long, help="Ignore the .gitignore file while adding files")]
+    #[arg(
+        required = false,
+        short,
+        long,
+        help = "Ignore the .gitignore file while adding files"
+    )]
     no_ignore: bool,
 
-    #[arg(required = false, long, help="Include hidden files while pasting")]
+    #[arg(required = false, long, help = "Include hidden files while pasting")]
     hidden: bool,
 
-    #[arg(required = false, short, long, help="Overwrite the file if it already exists while pasting")]
+    #[arg(
+        required = false,
+        short,
+        long,
+        help = "Overwrite the file if it already exists while pasting"
+    )]
     overwrite: bool,
 
-    #[arg(required = false, short, long, help="Delete the file from the store, but not from the disk")]
+    #[arg(
+        required = false,
+        short,
+        long,
+        help = "Delete the file from the store, but not from the disk"
+    )]
     delete: bool,
 
-    #[arg(required = false, short, long, help="The Range of files to be pasted")]
+    #[arg(
+        required = false,
+        short,
+        long,
+        help = "The Range of files to be pasted"
+    )]
     range: Option<String>,
 }
 
@@ -74,6 +104,12 @@ impl Command {
 async fn main() {
     let args = Args::parse();
 
+    if !get_config_path().exists() {
+        write_default_config();
+    }
+
+    let config = get_config_from_file();
+
     let temp_arg = args.clone();
     let mut cmd = match args.clone().cmd {
         Some(cmd) => Command::from(&cmd),
@@ -106,7 +142,7 @@ async fn main() {
 
     db::prep_db(&conn).expect("Could not prepare database");
 
-    handler::handler(cmd, args, &conn).await;
+    handler::handler(cmd, ConstructedArgs::new(args, config), &conn).await;
 }
 
 fn get_cmd() -> Command {

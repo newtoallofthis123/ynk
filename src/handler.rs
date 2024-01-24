@@ -8,33 +8,8 @@ use indicatif::ProgressBar;
 use tokio::{sync::Mutex, task};
 
 use crate::{
-    db,
-    utils::{self, does_file_exist, list_dir, ListDirConfig, parse_range},
-    Args, Command,
+    db, utils::{self, does_file_exist, list_dir, ListDirConfig, parse_range}, Command, ConstructedArgs
 };
-
-/// Private PasteBuilder struct
-/// which is used to emulate or mimic
-/// Arg struct
-///
-/// This is a safe way to interact with the async paste
-/// handler without accidentally messing up the arguments
-///
-/// # Note
-///
-/// This takes up a bit more memory than the Arg struct
-/// but it is worth it in the long run
-struct PasteBuilder {
-    files: Option<Vec<String>>,
-    dir: bool,
-    strict: bool,
-    no_ignore: bool,
-    hidden: bool,
-    overwrite: bool,
-    delete: bool,
-    range: Option<String>,
-    specific: Option<String>,
-}
 
 /// The main handler function that handles all the commands
 /// and the arguments
@@ -57,7 +32,7 @@ struct PasteBuilder {
 /// This function panics if the database connection is not valid
 /// and also if at any point, an error occurs while handling the
 /// paste command
-pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
+pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Connection) {
     let mut files: HashMap<String, PathBuf> = HashMap::new();
 
     if cmd == Command::Add {
@@ -106,17 +81,8 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
 
         bunt::println!("Copied {$green}{}{/$} files", entries.len());
     } else if cmd == Command::Paste {
-        let paste_config = PasteBuilder {
-            files: args.files,
-            dir: args.dir,
-            strict: args.strict,
-            no_ignore: args.no_ignore,
-            hidden: args.hidden,
-            overwrite: args.overwrite,
-            delete: args.delete,
-            range: args.range,
-            specific: None
-        };
+        let mut paste_config = args;
+        paste_config.specific = None;
 
         handle_paste(paste_config, conn).await;
     } else if cmd == Command::Exit {
@@ -143,19 +109,11 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
             }
         };
 
-        let paste_config = PasteBuilder {
-            files: args.files,
-            dir: args.dir,
-            strict: args.strict,
-            no_ignore: args.no_ignore,
-            hidden: args.hidden,
-            overwrite: args.overwrite,
-            delete: args.delete,
-            range: None,
-            specific: Some(entry.path),
-        };
+        let mut paste_config = args;
+        paste_config.range = None;
+        paste_config.specific = Some(entry.path);
 
-        handle_paste(paste_config, conn).await;
+        handle_paste(paste_config, conn).await
     } else if cmd == Command::Clear {
         let choice = inquire::Confirm::new("Are you sure you want to clear all the copied files?")
             .prompt()
@@ -205,7 +163,7 @@ pub async fn handler(cmd: Command, args: Args, conn: &rusqlite::Connection) {
 }
 
 /// Private async function to handle the paste command
-async fn handle_paste(paste_config: PasteBuilder, conn: &rusqlite::Connection) {
+async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection) {
     println!("{:?}", paste_config.hidden);
 
     let s_files = db::get_all(conn)
