@@ -144,8 +144,6 @@ async fn main() {
 
     let constructed_args = ConstructedArgs::new(args, config);
 
-    println!("{:?}", &constructed_args);
-
     handler::handler(cmd, constructed_args, &conn).await;
 }
 

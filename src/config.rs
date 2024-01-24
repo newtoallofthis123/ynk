@@ -22,7 +22,6 @@ use crate::{files::get_config_path, Args};
 ///
 /// This takes up a bit more memory than the Arg struct
 /// but it is worth it in the long run
-#[derive(Debug, Clone)]
 pub struct ConstructedArgs {
     pub files: Option<Vec<String>>,
     pub dir: bool,
@@ -76,7 +75,7 @@ delete = false
     .to_string()
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize)]
 pub struct Config {
     pub strict: bool,
     pub no_ignore: bool,
