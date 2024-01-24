@@ -164,8 +164,6 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
 
 /// Private async function to handle the paste command
 async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection) {
-    println!("{:?}", paste_config.hidden);
-
     let s_files = db::get_all(conn)
         .expect("Could not get entries from database")
         .iter()

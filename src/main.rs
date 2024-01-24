@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use clap::{command, Parser};
 use config::{get_config_from_file, write_default_config, ConstructedArgs};
 use files::get_config_path;
+mod config;
 mod db;
 mod files;
 mod handler;
 mod utils;
-mod config;
 
 #[derive(Parser, Debug, Clone)]
 #[command(name="ynk", author="Ishan Joshi <noobscience@duck.com>", version, about="Copy paste files in the terminal", long_about = None)]
@@ -142,7 +142,11 @@ async fn main() {
 
     db::prep_db(&conn).expect("Could not prepare database");
 
-    handler::handler(cmd, ConstructedArgs::new(args, config), &conn).await;
+    let constructed_args = ConstructedArgs::new(args, config);
+
+    println!("{:?}", &constructed_args);
+
+    handler::handler(cmd, constructed_args, &conn).await;
 }
 
 fn get_cmd() -> Command {

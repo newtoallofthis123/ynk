@@ -39,8 +39,10 @@ pub fn check_paths_exist() {
 
 /// This function returns the path to the config file
 pub fn get_config_path() -> PathBuf {
-    let config_path = config_dir().expect("Failed to get config directory");
-    config_path.join(PathBuf::from(NAME))
+    let config_path = config_dir()
+        .expect("Failed to get config directory")
+        .join(NAME);
+    config_path.join("config.toml")
 }
 
 /// This function returns the path to the file in the store directory
