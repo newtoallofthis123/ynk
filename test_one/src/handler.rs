@@ -296,7 +296,7 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
                 });
 
             let pb = pb.lock().await;
-            pb.finish_with_message(format!("Pasted {} files in {} seconds", count, pb.elapsed().as_secs_f32()));
+            pb.finish_with_message(format!("Pasted {} files in {}", count, pb.elapsed().as_secs_f32()));
 
             files.iter().for_each(|(_, path)| {
                 let redundant_entry = match db::does_exist(conn, path.to_str().unwrap()){

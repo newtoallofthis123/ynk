@@ -1,0 +1,28 @@
+[package]
+name = "ynk"
+version = "0.1.9"
+edition = "2021"
+license = "MIT"
+keywords = ["yank", "cp", "cli", "tool", "terminal"]
+readme = "README.md"
+authors = ["Ishan Joshi <noobscience@duck.com>"]
+description = "Effortlessly yank and paste files blazingly fast in the terminal"
+repository = "https://github.com/newtoallofthis123/ynk"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bunt = "0.2.8"
+chrono = "0.4.31"
+clap = { version = "4.4.16", features = ["derive"] }
+dirs = "5.0.1"
+futures = "0.3.30"
+hashbrown = "0.14.3"
+ignore = "0.4.22"
+indicatif = { version = "0.17.7", features = ["tokio"] }
+inquire = "0.6"
+rusqlite = { version = "0.30.0", features = ["bundled"] }
+sea-query = "0"
+serde = {version="1.0.195", features = ["derive"]}
+tokio = { version = "1.35.1", features = ["full"] }
+toml = {version = "0.8.8", features = ["preserve_order"]}
