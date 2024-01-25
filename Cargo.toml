@@ -20,7 +20,7 @@ futures = "0.3.30"
 hashbrown = "0.14.3"
 ignore = "0.4.22"
 indicatif = { version = "0.17.7", features = ["tokio"] }
-inquire = "0.6"
+inquire = {version = "0.6", default-features = false, features=["crossterm", "date", "editor"]}
 rusqlite = { version = "0.30.0", features = ["bundled"] }
 sea-query = "0"
 serde = {version="1.0.195", features = ["derive"]}

@@ -75,7 +75,7 @@ delete = false
     .to_string()
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Config {
     pub strict: bool,
     pub no_ignore: bool,
