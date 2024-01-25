@@ -1,3 +1,6 @@
+//! Some utility functions
+//! that are used throughout the codebase
+
 use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},

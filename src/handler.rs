@@ -1,3 +1,6 @@
+//! The main handler function that handles all the commands
+//! this is essentially the router of the program
+
 use std::{
     path::PathBuf,
     sync::{Arc, OnceLock},

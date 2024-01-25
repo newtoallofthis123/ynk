@@ -1,3 +1,5 @@
+//! This module contains the config related functions
+
 use std::path::Path;
 
 use crate::{files::get_config_path, Args};

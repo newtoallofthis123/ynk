@@ -1,3 +1,6 @@
+//! This module contains all the functions that are used to interact with the database
+//! The database is used to store the files that are uploaded
+
 use std::str::FromStr;
 
 use chrono::{DateTime, Local};
