@@ -34,6 +34,7 @@ pub struct ConstructedArgs {
     pub delete: bool,
     pub range: Option<String>,
     pub specific: Option<String>,
+    pub yes: bool,
 }
 
 impl ConstructedArgs {
@@ -48,6 +49,7 @@ impl ConstructedArgs {
             delete: arg_or_config(args.delete, config.delete),
             range: args.range,
             specific: None,
+            yes: arg_or_config(args.yes, config.prompt),
         }
     }
 }
@@ -66,15 +68,17 @@ pub fn write_file(path: &Path, content: String) -> bool {
     true
 }
 
-fn default_config() -> String {
-    r#"
-strict = false
-no_ignore = false
-hidden = false
-overwrite = false
-delete = false
-"#
-    .to_string()
+fn default_config() -> Result<String, toml::ser::Error> {
+    let config = Config {
+        strict: false,
+        no_ignore: false,
+        hidden: false,
+        overwrite: false,
+        delete: false,
+        prompt: true,
+    };
+
+    toml::to_string_pretty(&config)
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -84,22 +88,29 @@ pub struct Config {
     pub hidden: bool,
     pub overwrite: bool,
     pub delete: bool,
+    pub prompt: bool,
 }
 
 /// Convert config from string to Config struct
 pub fn get_config(config: String) -> Config {
+    let default_config = default_config().expect("Failed to serialize default config");
+
     let config: Config =
-        toml::from_str(config.as_str()).unwrap_or(toml::from_str(&default_config()).unwrap());
+        toml::from_str(config.as_str()).unwrap_or(toml::from_str(default_config.as_str()).unwrap());
     config
 }
 
 pub fn get_config_from_file() -> Config {
     let config_path = get_config_path();
-    let config = std::fs::read_to_string(config_path).unwrap_or(default_config());
+    let default_config = default_config().expect("Failed to serialize default config");
+
+    let config = std::fs::read_to_string(config_path).unwrap_or(default_config);
     get_config(config)
 }
 
 /// Writes the default config to the config file
 pub fn write_default_config() {
-    write_file(&get_config_path(), default_config());
+    let default_config = default_config().expect("Failed to serialize default config");
+
+    write_file(&get_config_path(), default_config);
 }

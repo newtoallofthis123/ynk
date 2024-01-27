@@ -8,6 +8,7 @@ use std::{
 
 use hashbrown::HashMap;
 use ignore::{WalkBuilder, WalkState};
+use update_informer::{registry, Check};
 
 use crate::db::{Entry, EntryBuilder};
 
@@ -55,8 +56,9 @@ pub struct ListDirConfig {
 /// # Returns
 ///
 /// A vector of `PathBuf`s
-pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> Vec<PathBuf> {
+pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> (Vec<PathBuf>, String) {
     let paths = Arc::new(Mutex::new(Vec::new()));
+    let size: Arc<Mutex<u64>> = Arc::new(Mutex::new(0));
 
     WalkBuilder::new(dir_path)
         .hidden(config.hidden)
@@ -64,6 +66,7 @@ pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> Vec<PathBuf> {
         .build_parallel()
         .run(|| {
             let paths = Arc::clone(&paths);
+            let size = Arc::clone(&size);
 
             Box::new(move |entry| {
                 let entry = if config.strict {
@@ -93,15 +96,32 @@ pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> Vec<PathBuf> {
                     paths.push(entry.path().to_path_buf());
                 }
 
+                // add to size
+                let mut size = size.lock().unwrap();
+                *size += entry.metadata().unwrap().len();
+
                 WalkState::Continue
             })
         });
 
+    // convert to MB
+    let size = *size.lock().unwrap() as f64 / 1024.0 / 1024.0;
+    let size_statement = if size < 1.0 {
+        format!("{} KB", (size * 1024.0))
+    } else if size < 1024.0 {
+        format!("{} MB", size)
+    } else {
+        format!("{} GB", size / 1024.0)
+    };
+
     // Extract paths from the Mutex
-    Arc::try_unwrap(paths)
-        .expect("Failed to unwrap Arc")
-        .into_inner()
-        .expect("Failed to extract paths from Mutex")
+    (
+        Arc::try_unwrap(paths)
+            .expect("Failed to unwrap Arc")
+            .into_inner()
+            .expect("Failed to extract paths from Mutex"),
+        size_statement,
+    )
 }
 
 /// Constructs a vector of `EntryBuilder`s
@@ -179,4 +199,17 @@ pub fn parse_range(range: &str) -> (usize, usize) {
     let end = range[1].parse::<usize>().unwrap();
 
     (start, end)
+}
+
+pub fn check_version() {
+    let pkg_name = env!("CARGO_PKG_NAME");
+    let current_version = env!("CARGO_PKG_VERSION");
+
+    let informer = update_informer::new(registry::Crates, pkg_name, current_version);
+    if let Some(version) = informer.check_version().unwrap() {
+        bunt::println!(
+            "A new version of {$green}ynk{/$} is available: {$yellow}{}{/$}",
+            version
+        );
+    }
 }

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::{command, Parser};
 use config::{get_config_from_file, write_default_config, ConstructedArgs};
 use files::get_config_path;
+use utils::check_version;
 mod config;
 mod db;
 mod files;
@@ -71,6 +72,9 @@ struct Args {
         help = "The Range of files to be pasted"
     )]
     range: Option<String>,
+
+    #[arg(required = false, short, long, help = "Don't ask for confirmation")]
+    yes: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -146,13 +150,15 @@ async fn main() {
 
     let constructed_args = ConstructedArgs::new(args, config);
 
+    check_version();
+
     handler::handler(cmd, constructed_args, &conn).await;
 }
 
 fn get_cmd() -> Command {
     let choice = inquire::Select::new(
         "Select a Command",
-        vec!["add", "paste", "list", "clear", "pop", "exit"],
+        vec!["add", "paste", "list", "clear", "pop", "exit", "config"],
     )
     .prompt()
     .unwrap();

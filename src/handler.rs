@@ -8,6 +8,10 @@ use std::{
 
 use hashbrown::HashMap;
 use indicatif::{ProgressBar, ProgressStyle};
+use tabled::{
+    settings::{Panel, Style},
+    Table, Tabled,
+};
 use tokio::{sync::Mutex, task};
 
 use crate::{
@@ -50,13 +54,16 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             let req = args.files.unwrap_or_else(|| {
                 bunt::println!("{$yellow}No files or directories specified{/$}");
                 bunt::println!("Copying the current directory");
-                let choice = inquire::Confirm::new("Do you want to continue?")
-                    .with_default(true)
-                    .prompt()
-                    .unwrap();
 
-                if !choice {
-                    std::process::exit(0);
+                if args.yes {
+                    let choice = inquire::Confirm::new("Do you want to continue?")
+                        .with_default(true)
+                        .prompt()
+                        .unwrap();
+
+                    if !choice {
+                        std::process::exit(0);
+                    }
                 }
 
                 vec![".".to_string()]
@@ -112,13 +119,39 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
         Command::List => {
             let entries = db::get_all(conn).expect("Could not get entries from database");
 
-            bunt::println!("{$green}{}{/$} files in store", entries.len());
+            if entries.is_empty() {
+                bunt::println!("{$red}No entries in the store{/$}");
+                std::process::exit(1);
+            }
+
+            bunt::println!("{$green}{}{/$} entry in the store", entries.len());
             let mut count = 0;
 
+            #[derive(Tabled)]
+            struct DisplayFiles {
+                id: usize,
+                path: String,
+                last_accessed: String,
+            }
+
+            let mut display_contents = Vec::new();
+
             entries.iter().for_each(|x| {
-                bunt::println!("{}. {$blue}{}{/$}", count, x.path);
+                // bunt::println!("{}. {$blue}{}{/$}", count, x.path);
+                display_contents.push(DisplayFiles {
+                    id: count,
+                    path: x.path.clone(),
+                    last_accessed: x.accessed_at.to_rfc2822(),
+                });
                 count += 1;
             });
+
+            let table = Table::new(display_contents)
+                .with(Style::modern_rounded())
+                .with(Panel::header("Entries in The Store"))
+                .to_string();
+
+            bunt::println!("{}", table);
 
             bunt::println!("Use {$green}ynk paste{/$} to paste the files");
         }
@@ -127,30 +160,40 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             std::process::exit(0);
         }
         Command::Clear => {
-            let choice =
-                inquire::Confirm::new("Are you sure you want to clear all the copied files?")
-                    .prompt()
-                    .unwrap();
+            if args.yes {
+                let choice =
+                    inquire::Confirm::new("Are you sure you want to clear all the copied files?")
+                        .prompt()
+                        .unwrap();
 
-            if !choice {
-                bunt::println!("Ok! {$red}Quitting{/$}");
+                if !choice {
+                    bunt::println!("Ok! {$red}Quitting{/$}");
+                }
             }
 
-            bunt::println!("Clearing the indexed files");
             db::delete_all(conn).expect("Unable to delete the indexes");
+            bunt::println!("{$green}Emptied{/$} the store");
         }
         Command::Delete => {
             let entries = db::get_all(conn).expect("Could not get entries from database");
+
+            if entries.is_empty() {
+                bunt::println!("{$red}No entries in the store{/$}");
+                std::process::exit(1);
+            }
 
             let mut choices = entries
                 .iter()
                 .map(utils::wrap_from_entry)
                 .collect::<HashMap<_, _>>();
 
-            choices.insert("Proceed".to_string(), PathBuf::from("_______"));
+            choices.insert("-><-".to_string(), PathBuf::from("_______"));
 
             let mut to_delete = Vec::new();
-            let mut delete_choices = choices.iter().map(|(n, _)| n.clone()).collect::<Vec<_>>();
+            let mut delete_choices = choices
+                .iter()
+                .map(|(_, p)| p.to_string_lossy().to_string())
+                .collect::<Vec<_>>();
 
             loop {
                 let choice =
@@ -180,14 +223,16 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             let config = get_config_from_file();
             println!("{:#?}", config);
 
-            let choice = inquire::Confirm::new("Do you want to change the config?")
-                .with_default(false)
-                .prompt()
-                .unwrap();
+            if args.yes {
+                let choice = inquire::Confirm::new("Do you want to change the config?")
+                    .with_default(false)
+                    .prompt()
+                    .unwrap();
 
-            if !choice {
-                bunt::println!("Ok! {$red}Quitting{/$}");
-                std::process::exit(0);
+                if !choice {
+                    bunt::println!("Ok! {$red}Quitting{/$}");
+                    std::process::exit(0);
+                }
             }
 
             let edited_config = inquire::Editor::new("Edit Config")
@@ -271,10 +316,12 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
     });
 
     let mut final_files = HashMap::new();
+    let mut size_statement = String::new();
 
     files.iter().for_each(|(name, path)| {
         if path.is_dir() {
-            let entries = list_dir(path.to_str().unwrap(), LIST_DIR_CONFIG.get().unwrap());
+            let (entries, got_size_statement) = list_dir(path.to_str().unwrap(), LIST_DIR_CONFIG.get().unwrap());
+            size_statement = got_size_statement;
             final_files.extend(entries.iter().map(|x| {
                 let (name, path) = utils::wrap_from_path(path, x);
                 (name, path)
@@ -338,10 +385,12 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
 
             let pb = pb.lock().await;
             pb.finish_with_message(format!(
-                "Pasted {} files in {} seconds",
+                "\nPasted {} files in {} seconds",
                 count,
                 pb.elapsed().as_secs_f32()
             ));
+
+            bunt::println!("{$green}Pasted about {} of data{/$}", size_statement);
 
             files.iter().for_each(|(_, path)| {
                 let redundant_entry = match db::does_exist(conn, path.to_str().unwrap()){
