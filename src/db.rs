@@ -173,6 +173,7 @@ pub fn get_all(conn: &Connection) -> Result<Vec<Entry>, rusqlite::Error> {
             Store::AccessedAt,
             Store::CreatedAt,
         ])
+        .order_by(Store::Id, Order::Desc)
         .from(Store::Table)
         .to_string(SqliteQueryBuilder);
 
@@ -298,7 +299,12 @@ pub fn delete_all(conn: &Connection) -> Result<usize, rusqlite::Error> {
         .if_exists()
         .to_string(SqliteQueryBuilder);
 
-    conn.execute(&table_del, [])
+    conn.execute(&table_del, [])?;
+
+    //create the table again
+    //so that the program doesn't crash
+    //when trying to insert into the database
+    prep_db(conn)
 }
 
 pub fn pop_one(conn: &Connection) -> Result<Entry, rusqlite::Error> {

@@ -56,7 +56,7 @@ pub struct ListDirConfig {
 /// # Returns
 ///
 /// A vector of `PathBuf`s
-pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> (Vec<PathBuf>, String) {
+pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> (Vec<PathBuf>, f64) {
     let paths = Arc::new(Mutex::new(Vec::new()));
     let size: Arc<Mutex<u64>> = Arc::new(Mutex::new(0));
 
@@ -104,15 +104,8 @@ pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> (Vec<PathBuf>, String
             })
         });
 
-    // convert to MB
-    let size = *size.lock().unwrap() as f64 / 1024.0 / 1024.0;
-    let size_statement = if size < 1.0 {
-        format!("{} KB", (size * 1024.0))
-    } else if size < 1024.0 {
-        format!("{} MB", size)
-    } else {
-        format!("{} GB", size / 1024.0)
-    };
+    // convert to kb
+    let size = *size.lock().unwrap() as f64 / 1024.0;
 
     // Extract paths from the Mutex
     (
@@ -120,7 +113,7 @@ pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> (Vec<PathBuf>, String
             .expect("Failed to unwrap Arc")
             .into_inner()
             .expect("Failed to extract paths from Mutex"),
-        size_statement,
+        size,
     )
 }
 
@@ -177,8 +170,7 @@ pub fn strip_weird_stuff(path: &str) -> String {
 }
 
 /// Directly print a cool splash screen
-/// Still a WIP
-pub fn _print_splash_screen() {
+pub fn print_splash_screen() {
     bunt::println!("{$blue}+-+-+-+{/$}");
     bunt::println!("{$green}Y{$red}(a){/$}NK{/$}");
     bunt::println!("{$yellow}+-+-+-+{/$}");

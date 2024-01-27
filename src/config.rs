@@ -76,6 +76,7 @@ fn default_config() -> Result<String, toml::ser::Error> {
         overwrite: false,
         delete: false,
         prompt: true,
+        show_splash: true,
     };
 
     toml::to_string_pretty(&config)
@@ -89,6 +90,7 @@ pub struct Config {
     pub overwrite: bool,
     pub delete: bool,
     pub prompt: bool,
+    pub show_splash: bool,
 }
 
 /// Convert config from string to Config struct

@@ -187,26 +187,43 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 .map(utils::wrap_from_entry)
                 .collect::<HashMap<_, _>>();
 
-            choices.insert("-><-".to_string(), PathBuf::from("_______"));
+            choices.insert("-><-".to_string(), PathBuf::from("PROCEED_WITH_DELETION"));
 
             let mut to_delete = Vec::new();
-            let mut delete_choices = choices
-                .iter()
-                .map(|(_, p)| p.to_string_lossy().to_string())
-                .collect::<Vec<_>>();
 
-            loop {
-                let choice =
-                    inquire::Select::new("Select a file to delete", delete_choices.clone())
-                        .prompt()
-                        .unwrap();
+            if let Some(indexes) = args.files {
+                to_delete = indexes
+                    .iter()
+                    .map(|x| {
+                        let index = x.parse::<i32>().unwrap();
+                        if index as usize > choices.len() {
+                            bunt::println!("{$red}Invalid index{/$}");
+                            std::process::exit(1);
+                        }
 
-                if choice == "Proceed" {
-                    break;
+                        PathBuf::from(entries[index as usize].path.clone())
+                    })
+                    .collect::<Vec<_>>();
+            } else {
+                let mut delete_choices = choices
+                    .iter()
+                    .map(|(_, p)| p.to_string_lossy().to_string())
+                    .collect::<Vec<_>>();
+
+                loop {
+                    let choice =
+                        inquire::Select::new("Select a file to delete", delete_choices.clone())
+                            .prompt()
+                            .unwrap();
+
+                    if choice == "Proceed" {
+                        break;
+                    }
+
+                    to_delete.push(choices.get(&choice).unwrap().clone());
+                    delete_choices
+                        .remove(delete_choices.iter().position(|x| x == &choice).unwrap());
                 }
-
-                to_delete.push(choices.get(&choice).unwrap().clone());
-                delete_choices.remove(delete_choices.iter().position(|x| x == &choice).unwrap());
             }
 
             to_delete.iter().for_each(|x| {
@@ -316,12 +333,13 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
     });
 
     let mut final_files = HashMap::new();
-    let mut size_statement = String::new();
+    let mut file_sizes = 0.0;
 
     files.iter().for_each(|(name, path)| {
         if path.is_dir() {
-            let (entries, got_size_statement) = list_dir(path.to_str().unwrap(), LIST_DIR_CONFIG.get().unwrap());
-            size_statement = got_size_statement;
+            let (entries, got_size) =
+                list_dir(path.to_str().unwrap(), LIST_DIR_CONFIG.get().unwrap());
+            file_sizes += got_size;
             final_files.extend(entries.iter().map(|x| {
                 let (name, path) = utils::wrap_from_path(path, x);
                 (name, path)
@@ -390,7 +408,19 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
                 pb.elapsed().as_secs_f32()
             ));
 
-            bunt::println!("{$green}Pasted about {} of data{/$}", size_statement);
+            if file_sizes <= 1024.0 {
+                bunt::println!("Total size of files pasted: {$green}{}{/$} KB", file_sizes);
+            } else if file_sizes > 1024.0 {
+                bunt::println!(
+                    "Total size of files pasted: {$green}{:.2}{/$} MB",
+                    file_sizes / 1024.0
+                );
+            } else {
+                bunt::println!(
+                    "Total size of files pasted: {$green}{:.2}{/$} GB",
+                    file_sizes / (1024.0 * 1024.0)
+                );
+            }
 
             files.iter().for_each(|(_, path)| {
                 let redundant_entry = match db::does_exist(conn, path.to_str().unwrap()){

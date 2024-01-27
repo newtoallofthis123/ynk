@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use clap::{command, Parser};
 use config::{get_config_from_file, write_default_config, ConstructedArgs};
 use files::get_config_path;
-use utils::check_version;
+use human_panic::setup_panic;
+use utils::{check_version, print_splash_screen};
+
 mod config;
 mod db;
 mod files;
@@ -108,6 +110,8 @@ impl Command {
 
 #[tokio::main]
 async fn main() {
+    setup_panic!();
+
     let args = Args::parse();
 
     if !get_config_path().exists() {
@@ -115,6 +119,10 @@ async fn main() {
     }
 
     let config = get_config_from_file();
+
+    if config.show_splash {
+        print_splash_screen();
+    }
 
     let temp_arg = args.clone();
     let mut cmd = match args.clone().cmd {
@@ -158,7 +166,9 @@ async fn main() {
 fn get_cmd() -> Command {
     let choice = inquire::Select::new(
         "Select a Command",
-        vec!["add", "paste", "list", "clear", "pop", "exit", "config"],
+        vec![
+            "add", "paste", "pop", "list", "config", "delete", "clear", "exit",
+        ],
     )
     .prompt()
     .unwrap();
