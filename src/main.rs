@@ -156,6 +156,14 @@ async fn main() {
                 );
                 if let Some(word) = word.word {
                     bunt::println!("You seem to have meant {$blue}{}{/$}", word);
+                    if !inquire::Confirm::new("Do you want to continue?")
+                        .with_default(true)
+                        .prompt()
+                        .unwrap()
+                    {
+                        std::process::exit(0);
+                    }
+
                     cmd = Command::from(&word);
                 } else {
                     cmd = get_cmd();
