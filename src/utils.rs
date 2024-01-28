@@ -205,3 +205,20 @@ pub fn check_version() {
         );
     }
 }
+
+pub fn convert_size(size: f64) -> String {
+    let mut size = size;
+    let mut unit = "KB";
+
+    if size > 1024.0 {
+        size /= 1024.0;
+        unit = "MB";
+    }
+
+    if size > 1024.0 {
+        size /= 1024.0;
+        unit = "GB";
+    }
+
+    format!("{:.2} {}", size, unit)
+}

@@ -131,16 +131,46 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             struct DisplayFiles {
                 id: usize,
                 path: String,
+                count: usize,
+                size: String,
                 last_accessed: String,
             }
 
             let mut display_contents = Vec::new();
 
+            let mut paste_config = args;
+            paste_config.specific = None;
+
+            static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
+            LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
+                filter_file: false,
+                full_path: false,
+                strict: false,
+                hidden: true,
+                respect_ignore: false,
+            });
+
             entries.iter().for_each(|x| {
-                // bunt::println!("{}. {$blue}{}{/$}", count, x.path);
+                let mut file_count = 1;
+                let mut size = 0.0;
+
+                utils::convert_size(size);
+
+                if PathBuf::from(x.path.clone()).is_dir() {
+                    let (files, raw_size) =
+                        utils::list_dir(&x.path, LIST_DIR_CONFIG.get().unwrap());
+
+                    file_count = files.len();
+                    size = raw_size;
+                } else {
+                    size = PathBuf::from(x.path.clone()).metadata().unwrap().len() as f64;
+                }
+
                 display_contents.push(DisplayFiles {
                     id: count,
                     path: x.path.clone(),
+                    count: file_count,
+                    size: utils::convert_size(size),
                     last_accessed: x.accessed_at.to_rfc2822(),
                 });
                 count += 1;
@@ -408,19 +438,7 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
                 pb.elapsed().as_secs_f32()
             ));
 
-            if file_sizes <= 1024.0 {
-                bunt::println!("Total size of files pasted: {$green}{}{/$} KB", file_sizes);
-            } else if file_sizes > 1024.0 {
-                bunt::println!(
-                    "Total size of files pasted: {$green}{:.2}{/$} MB",
-                    file_sizes / 1024.0
-                );
-            } else {
-                bunt::println!(
-                    "Total size of files pasted: {$green}{:.2}{/$} GB",
-                    file_sizes / (1024.0 * 1024.0)
-                );
-            }
+            bunt::println!("Total size of files: {$green}{}{/$} bytes", file_sizes);
 
             files.iter().for_each(|(_, path)| {
                 let redundant_entry = match db::does_exist(conn, path.to_str().unwrap()){
