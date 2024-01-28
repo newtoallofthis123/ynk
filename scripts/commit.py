@@ -2,7 +2,7 @@
 
 import sys
 import subprocess
-import increment_version
+import increment_version as increment_version
 
 
 def main():
@@ -11,6 +11,20 @@ def main():
         sys.exit(1)
 
     commit_message = sys.argv[1]
+
+    to_increment = False
+
+    try:
+        if sys.argv[1] == "-i":
+            to_increment = True
+            commit_message = sys.argv[2]
+        elif sys.argv[2] == "-i":
+            to_increment = True
+            commit_message = sys.argv[1]
+        else:
+            commit_message = sys.argv[1]
+    except IndexError:
+        commit_message = sys.argv[1]
 
     try:
         subprocess.check_call(["cargo", "build", "--release"])
@@ -30,7 +44,8 @@ def main():
         print("Failed to clippy")
         sys.exit(1)
 
-    increment_version.increment_version()    
+    if to_increment:
+        increment_version.main()
 
     try:
         subprocess.check_call(["git", "add", "."])

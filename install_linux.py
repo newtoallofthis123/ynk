@@ -4,7 +4,7 @@ import os
 import tarfile
 import tempfile
 
-LINUX_RELEASE_URL = "https://github.com/newtoallofthis123/ynk/releases/download/v.0.1.1/ynk_v.0.1.1.tar.xz"
+LINUX_RELEASE_URL = "https://github.com/newtoallofthis123/ynk/releases/download/v.0.1.9/ynk_v.0.1.9.tar.xz"
 DESTINATION = "ynk_v.0.1.9.tar.xz"
 
 
