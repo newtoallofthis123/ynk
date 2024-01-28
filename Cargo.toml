@@ -15,6 +15,7 @@ repository = "https://github.com/newtoallofthis123/ynk"
 bunt = "0.2.8"
 chrono = "0.4.31"
 clap = { version = "4.4.16", features = ["derive"] }
+correct_word = "0.1.2"
 dirs = "5.0.1"
 futures = "0.3.30"
 hashbrown = "0.14.3"

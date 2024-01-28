@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::{command, Parser};
 use config::{get_config_from_file, write_default_config, ConstructedArgs};
+use correct_word::{correct_word, Algorithm};
 use files::get_config_path;
 use human_panic::setup_panic;
 use utils::{check_version, print_splash_screen};
@@ -108,6 +109,10 @@ impl Command {
     }
 }
 
+const OPTIONS: &[&str] = &[
+    "add", "paste", "pop", "list", "config", "delete", "clear", "exit",
+];
+
 #[tokio::main]
 async fn main() {
     setup_panic!();
@@ -134,19 +139,35 @@ async fn main() {
     };
 
     if cmd == Command::Empty {
-        if let Some(cmd) = temp_arg.cmd {
-            if PathBuf::from(cmd.clone()).exists() {
+        if let Some(temp_cmd) = temp_arg.cmd {
+            if PathBuf::from(temp_cmd.clone()).exists() {
                 bunt::println!("You seem to have entered a {$red}file path{/$}");
-                bunt::println!("You can use {$blue}ynk add {}{/$} to add to the store", cmd);
+                bunt::println!(
+                    "You can use {$blue}ynk add {}{/$} to add to the store",
+                    temp_cmd
+                );
                 std::process::exit(0);
+            } else {
+                let word = correct_word(
+                    Algorithm::Levenshtein,
+                    temp_cmd,
+                    OPTIONS.iter().map(|x| x.to_string()).collect(),
+                    Some(5),
+                );
+                if let Some(word) = word.word {
+                    bunt::println!("You seem to have meant {$blue}{}{/$}", word);
+                    cmd = Command::from(&word);
+                } else {
+                    cmd = get_cmd();
+                }
             }
         } else {
             bunt::println!(
                 "{$red}Invalid Command{/$} \"{$green}{}{/$}\"",
                 &temp_arg.cmd.unwrap()
             );
+            cmd = get_cmd();
         }
-        cmd = get_cmd();
     }
 
     // check all the paths
@@ -164,14 +185,9 @@ async fn main() {
 }
 
 fn get_cmd() -> Command {
-    let choice = inquire::Select::new(
-        "Select a Command",
-        vec![
-            "add", "paste", "pop", "list", "config", "delete", "clear", "exit",
-        ],
-    )
-    .prompt()
-    .unwrap();
+    let choice = inquire::Select::new("Select a Command", OPTIONS.to_vec())
+        .prompt()
+        .unwrap();
 
     Command::from(choice)
 }
