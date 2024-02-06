@@ -136,7 +136,12 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 last_accessed: String,
             }
 
-            let mut display_contents = Vec::new();
+            #[derive(Tabled)]
+            struct PartialDisplayFiles {
+                id: usize,
+                path: String,
+                last_accessed: String,
+            }
 
             let mut paste_config = args;
             paste_config.specific = None;
@@ -150,36 +155,58 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 respect_ignore: false,
             });
 
-            entries.iter().for_each(|x| {
-                let mut file_count = 1;
-                let mut size = 0.0;
+            // TODO: Better way to handle the calculate size flag
+            #[allow(unused_assignments)]
+            let mut table = String::new();
 
-                utils::convert_size(size);
+            if paste_config.calculate_size {
+                let mut display_contents = Vec::new();
+                entries.iter().for_each(|x| {
+                    let mut file_count = 1;
+                    let mut size = 0.0;
 
-                if PathBuf::from(x.path.clone()).is_dir() {
-                    let (files, raw_size) =
-                        utils::list_dir(&x.path, LIST_DIR_CONFIG.get().unwrap());
+                    utils::convert_size(size);
 
-                    file_count = files.len();
-                    size = raw_size;
-                } else {
-                    size = PathBuf::from(x.path.clone()).metadata().unwrap().len() as f64;
-                }
+                    if PathBuf::from(x.path.clone()).is_dir() {
+                        let (files, raw_size) =
+                            utils::list_dir(&x.path, LIST_DIR_CONFIG.get().unwrap());
 
-                display_contents.push(DisplayFiles {
-                    id: count,
-                    path: x.path.clone(),
-                    count: file_count,
-                    size: utils::convert_size(size),
-                    last_accessed: x.accessed_at.to_rfc2822(),
+                        file_count = files.len();
+                        size = raw_size;
+                    } else {
+                        size = PathBuf::from(x.path.clone()).metadata().unwrap().len() as f64;
+                    }
+
+                    display_contents.push(DisplayFiles {
+                        id: count,
+                        path: x.path.clone(),
+                        count: file_count,
+                        size: utils::convert_size(size),
+                        last_accessed: x.accessed_at.to_rfc2822(),
+                    });
+                    count += 1;
                 });
-                count += 1;
-            });
 
-            let table = Table::new(display_contents)
-                .with(Style::modern_rounded())
-                .with(Panel::header("Entries in The Store"))
-                .to_string();
+                table = Table::new(display_contents)
+                    .with(Style::modern_rounded())
+                    .with(Panel::header("Entries in The Store"))
+                    .to_string();
+            } else {
+                let mut display_contents = Vec::new();
+                entries.iter().for_each(|x| {
+                    display_contents.push(PartialDisplayFiles {
+                        id: count,
+                        path: x.path.clone(),
+                        last_accessed: x.accessed_at.to_rfc2822(),
+                    });
+                    count += 1;
+                });
+
+                table = Table::new(display_contents)
+                    .with(Style::modern_rounded())
+                    .with(Panel::header("Entries in The Store"))
+                    .to_string();
+            }
 
             bunt::println!("{}", table);
 

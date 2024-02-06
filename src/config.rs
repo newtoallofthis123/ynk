@@ -22,7 +22,7 @@ use crate::{files::get_config_path, Args};
 ///
 /// # Note
 ///
-/// This takes up a bit more memory than the Arg struct
+/// This takes up a bit more memory than the Arg struct,
 /// but it is worth it in the long run
 pub struct ConstructedArgs {
     pub files: Option<Vec<String>>,
@@ -35,6 +35,7 @@ pub struct ConstructedArgs {
     pub range: Option<String>,
     pub specific: Option<String>,
     pub yes: bool,
+    pub calculate_size: bool,
 }
 
 impl ConstructedArgs {
@@ -48,6 +49,7 @@ impl ConstructedArgs {
             no_ignore: arg_or_config(args.no_ignore, config.no_ignore),
             delete: arg_or_config(args.delete, config.delete),
             range: args.range,
+            calculate_size: config.calculate_size,
             specific: None,
             yes: arg_or_config(args.yes, config.prompt),
         }
@@ -77,6 +79,7 @@ fn default_config() -> Result<String, toml::ser::Error> {
         delete: false,
         prompt: true,
         show_splash: true,
+        calculate_size: true,
     };
 
     toml::to_string_pretty(&config)
@@ -91,6 +94,7 @@ pub struct Config {
     pub delete: bool,
     pub prompt: bool,
     pub show_splash: bool,
+    pub calculate_size: bool,
 }
 
 /// Convert config from string to Config struct
