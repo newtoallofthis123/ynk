@@ -49,7 +49,12 @@ struct Args {
     )]
     no_ignore: bool,
 
-    #[arg(required = false, short, long, help = "Include hidden files while pasting")]
+    #[arg(
+        required = false,
+        short,
+        long,
+        help = "Include hidden files while pasting"
+    )]
     all: bool,
 
     #[arg(
@@ -110,7 +115,7 @@ impl Command {
 }
 
 const OPTIONS: &[&str] = &[
-    "add", "paste", "pop", "list", "config",  "delete", "clear", "exit",
+    "add", "paste", "pop", "list", "config", "delete", "clear", "exit",
 ];
 
 #[tokio::main]
@@ -147,7 +152,7 @@ async fn main() {
                     temp_cmd
                 );
                 std::process::exit(0);
-            } else {
+            } else if !temp_cmd.is_empty() {
                 let word = correct_word(
                     Algorithm::Levenshtein,
                     temp_cmd,
