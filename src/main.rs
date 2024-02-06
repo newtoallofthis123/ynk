@@ -49,8 +49,8 @@ struct Args {
     )]
     no_ignore: bool,
 
-    #[arg(required = false, long, help = "Include hidden files while pasting")]
-    hidden: bool,
+    #[arg(required = false, short, long, help = "Include hidden files while pasting")]
+    all: bool,
 
     #[arg(
         required = false,
@@ -110,7 +110,7 @@ impl Command {
 }
 
 const OPTIONS: &[&str] = &[
-    "add", "paste", "pop", "list", "config", "delete", "clear", "exit",
+    "add", "paste", "pop", "list", "config",  "delete", "clear", "exit",
 ];
 
 #[tokio::main]

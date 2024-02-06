@@ -17,7 +17,7 @@ use tokio::{sync::Mutex, task};
 use crate::{
     config::{get_config_from_file, write_file},
     db, files,
-    utils::{self, does_file_exist, list_dir, parse_range, ListDirConfig},
+    utils::{self, does_file_exist, list_dir, parse_range, sort_entries, ListDirConfig},
     Command, ConstructedArgs,
 };
 
@@ -117,7 +117,9 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             handle_paste(paste_config, conn).await
         }
         Command::List => {
-            let entries = db::get_all(conn).expect("Could not get entries from database");
+            let mut entries = db::get_all(conn).expect("Could not get entries from database");
+
+            sort_entries(&mut entries);
 
             if entries.is_empty() {
                 bunt::println!("{$red}No entries in the store{/$}");
@@ -385,7 +387,7 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
         filter_file: !paste_config.dir,
         full_path: false,
         strict: paste_config.strict,
-        hidden: paste_config.hidden,
+        hidden: paste_config.all,
         respect_ignore: !paste_config.no_ignore,
     });
 

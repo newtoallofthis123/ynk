@@ -2150,7 +2150,7 @@ dependencies = [
 
 [[package]]
 name = "ynk"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "bunt",
  "chrono",

@@ -222,3 +222,7 @@ pub fn convert_size(size: f64) -> String {
 
     format!("{:.2} {}", size, unit)
 }
+
+pub fn sort_entries(entries: &mut [Entry]) {
+    entries.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+}
