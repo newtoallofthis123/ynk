@@ -63,7 +63,7 @@ Before passing in the options, know that the `paste` command is highly optimized
 Moreover, it also by default respects your `.gitignore` file and doesn't copy over an hidden files or directories. To learn how to tweak this, read the options below.
 
 - `-n` or `--no-ignore`: This will make it ignore the `.gitignore` file and copy over all files and directories.
-- `--hidden`: This will make it copy over hidden files and directories as well.
+- `-a` or `--all`: This will make it copy over all the files and directories, including hidden files and directories.
 - `-s` or `--strict`: This will make sure that any and all IO errors are reported. By default, it will ignore any IO errors and continue with the operation.
 - `-f` or `--force`: **TODO** For now, this does nothing. But in the future, this will make it overwrite any files or directories that already exist.
 - `--dry-run`: This will make it not actually copy over any files or directories. It will just print out what it would have done.
