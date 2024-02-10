@@ -224,5 +224,5 @@ pub fn convert_size(size: f64) -> String {
 }
 
 pub fn sort_entries(entries: &mut [Entry]) {
-    entries.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+    entries.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 }

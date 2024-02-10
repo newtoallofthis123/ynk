@@ -6,6 +6,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use bunt::println;
 use hashbrown::HashMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use tabled::{
@@ -43,14 +44,9 @@ use crate::{
 /// and also if at any point, an error occurs while handling the
 /// paste command
 pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Connection) {
-    let mut files: HashMap<String, PathBuf> = HashMap::new();
-
     match cmd {
         Command::Add => {
-            // make sure that the files are empty
-            // before adding new files
-            files.clear();
-
+            let mut files: HashMap<String, PathBuf> = HashMap::new();
             let req = args.files.unwrap_or_else(|| {
                 bunt::println!("{$yellow}No files or directories specified{/$}");
                 bunt::println!("Copying the current directory");
@@ -89,9 +85,6 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                     db::insert_into_db(conn, x.to_owned()).expect("Could not insert into database")
                 })
                 .collect::<Vec<_>>();
-
-            // clear the files and entries hashmap
-            files.clear();
 
             bunt::println!("Copied {$green}{}{/$} files", entries.len());
         }
@@ -212,6 +205,8 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
 
             bunt::println!("{}", table);
 
+            bunt::println!("The entry {$blue}{}{/$} can be popped", entries[0].path);
+
             bunt::println!("Use {$green}ynk paste{/$} to paste the files");
         }
         Command::Exit => {
@@ -234,7 +229,9 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             bunt::println!("{$green}Emptied{/$} the store");
         }
         Command::Delete => {
-            let entries = db::get_all(conn).expect("Could not get entries from database");
+            let mut entries = db::get_all(conn).expect("Could not get entries from database");
+
+            sort_entries(&mut entries);
 
             if entries.is_empty() {
                 bunt::println!("{$red}No entries in the store{/$}");
@@ -327,8 +324,11 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
 
 /// Private async function to handle the paste command
 async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection) {
-    let s_files = db::get_all(conn)
-        .expect("Could not get entries from database")
+    let mut s_files = db::get_all(conn).expect("Could not get entries from database");
+
+    sort_entries(&mut s_files);
+
+    let s_files = s_files
         .iter()
         .map(utils::wrap_from_entry)
         .filter(|(_, path)| {
@@ -415,22 +415,6 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
             .progress_chars("#>-"),
     )));
 
-    if utils::is_git_repo(&user_target) {
-        bunt::println!("{$blue}Target directory is a git repository{/$}");
-        bunt::println!("This may cause some problems with memory, which may cause your system to hang while the IO is being performed");
-        bunt::println!("{$yellow}Proceed with caution{/$}");
-
-        let choice = inquire::Confirm::new("Do you want to continue?")
-            .with_default(false)
-            .prompt()
-            .unwrap();
-
-        if !choice {
-            bunt::println!("Good choice! I'll definitely fix this in the future");
-            std::process::exit(0);
-        }
-    }
-
     let tasks = final_files.iter().map(|(name, path)| {
         if !PathBuf::from(user_target.clone()).exists() {
             bunt::println!("{$yellow}Target directory does not exist{/$}");
@@ -470,17 +454,11 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
             bunt::println!("Total size of files: {$green}{}{/$} bytes", file_sizes);
 
             files.iter().for_each(|(_, path)| {
-                let redundant_entry = match db::does_exist(conn, path.to_str().unwrap()){
-                    Ok(entry) => entry,
-                    Err(e) => {
-                        bunt::println!("{$red}Failed to check if entry exists: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
-                        std::process::exit(1);
-                    }
-                };
+                // update access time
+                db::update_accessed_at(conn, path.to_str().unwrap()).expect("Could not update access time");
 
+                if paste_config.delete{
                 db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
-                if !paste_config.delete{
-                    db::insert_into_db(conn, utils::builder_from_entry(&redundant_entry)).expect("Could not insert into database");
                 }
             });
         }

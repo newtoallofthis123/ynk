@@ -338,3 +338,15 @@ pub fn pop_one(conn: &Connection) -> Result<Entry, rusqlite::Error> {
         })
     })
 }
+
+pub fn update_accessed_at(conn: &Connection, path: &str) -> Result<usize, rusqlite::Error> {
+    let time_now = Local::now().to_string();
+
+    let query = Query::update()
+        .table(Store::Table)
+        .values([(Store::AccessedAt, time_now.into())])
+        .and_where(Expr::col(Store::Path).eq(path))
+        .to_string(SqliteQueryBuilder);
+
+    conn.execute(&query, [])
+}
