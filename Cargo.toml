@@ -1,6 +1,6 @@
 [package]
 name = "ynk"
-version = "0.2.6"
+version = "0.2.7"
 edition = "2021"
 license = "MIT"
 keywords = ["yank", "cp", "cli", "tool", "terminal"]
@@ -22,12 +22,12 @@ hashbrown = "0.14.3"
 human-panic = "1.2.3"
 ignore = "0.4.22"
 indicatif = { version = "0.17.7", features = ["tokio"] }
-inquire = { version = "0.6", default-features = false, features = [
+inquire = { version = "0.7", default-features = false, features = [
     "crossterm",
     "editor",
 ] }
 path_abs = "0.5.1"
-rusqlite = { version = "0.30.0", features = ["bundled"] }
+rusqlite = { version = "0.31.0", features = ["bundled"] }
 sea-query = "0"
 serde = { version = "1.0.195", features = ["derive"] }
 tabled = "0.15.0"
