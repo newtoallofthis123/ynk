@@ -145,7 +145,7 @@ pub fn wrap_from_path(root: &Path, path: &Path) -> (String, PathBuf) {
     )
 }
 
-pub fn builder_from_entry(entry: &Entry) -> EntryBuilder {
+pub fn _builder_from_entry(entry: &Entry) -> EntryBuilder {
     EntryBuilder {
         name: entry.name.clone(),
         path: entry.path.clone(),
@@ -177,7 +177,7 @@ pub fn print_splash_screen() {
 }
 
 /// Checks if a directory is a git repo
-pub fn is_git_repo(path: &str) -> bool {
+pub fn _is_git_repo(path: &str) -> bool {
     let path = PathBuf::from(path);
     let git_path = path.join(".git");
 
@@ -224,5 +224,5 @@ pub fn convert_size(size: f64) -> String {
 }
 
 pub fn sort_entries(entries: &mut [Entry]) {
-    entries.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    entries.sort_by(|a, b| b.id.cmp(&a.id));
 }

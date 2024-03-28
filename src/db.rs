@@ -317,7 +317,7 @@ pub fn pop_one(conn: &Connection) -> Result<Entry, rusqlite::Error> {
             Store::AccessedAt,
             Store::CreatedAt,
         ])
-        .order_by(Store::Id, Order::Asc)
+        .order_by(Store::Id, Order::Desc)
         .from(Store::Table)
         .limit(1)
         .to_string(SqliteQueryBuilder);

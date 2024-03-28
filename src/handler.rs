@@ -74,7 +74,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 }
 
                 files.insert(
-                    utils::strip_weird_stuff(x),
+                    utils::check_slash(x),
                     PathBuf::from(x).canonicalize().unwrap(),
                 );
             });
@@ -110,104 +110,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             handle_paste(paste_config, conn).await
         }
         Command::List => {
-            let mut entries = db::get_all(conn).expect("Could not get entries from database");
-
-            sort_entries(&mut entries);
-
-            if entries.is_empty() {
-                bunt::println!("{$red}No entries in the store{/$}");
-                std::process::exit(1);
-            }
-
-            bunt::println!("{$green}{}{/$} entry in the store", entries.len());
-            let mut count = 0;
-
-            #[derive(Tabled)]
-            struct DisplayFiles {
-                id: usize,
-                path: String,
-                count: usize,
-                size: String,
-                last_accessed: String,
-            }
-
-            #[derive(Tabled)]
-            struct PartialDisplayFiles {
-                id: usize,
-                path: String,
-                last_accessed: String,
-            }
-
-            let mut paste_config = args;
-            paste_config.specific = None;
-
-            static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
-            LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
-                filter_file: false,
-                full_path: false,
-                strict: false,
-                hidden: true,
-                respect_ignore: false,
-            });
-
-            // TODO: Better way to handle the calculate size flag
-            #[allow(unused_assignments)]
-            let mut table = String::new();
-
-            if paste_config.calculate_size {
-                let mut display_contents = Vec::new();
-                entries.iter().for_each(|x| {
-                    let mut file_count = 1;
-                    let mut size = 0.0;
-
-                    utils::convert_size(size);
-
-                    if PathBuf::from(x.path.clone()).is_dir() {
-                        let (files, raw_size) =
-                            utils::list_dir(&x.path, LIST_DIR_CONFIG.get().unwrap());
-
-                        file_count = files.len();
-                        size = raw_size;
-                    } else {
-                        size = PathBuf::from(x.path.clone()).metadata().unwrap().len() as f64;
-                    }
-
-                    display_contents.push(DisplayFiles {
-                        id: count,
-                        path: x.path.clone(),
-                        count: file_count,
-                        size: utils::convert_size(size),
-                        last_accessed: x.accessed_at.to_rfc2822(),
-                    });
-                    count += 1;
-                });
-
-                table = Table::new(display_contents)
-                    .with(Style::modern_rounded())
-                    .with(Panel::header("Entries in The Store"))
-                    .to_string();
-            } else {
-                let mut display_contents = Vec::new();
-                entries.iter().for_each(|x| {
-                    display_contents.push(PartialDisplayFiles {
-                        id: count,
-                        path: x.path.clone(),
-                        last_accessed: x.accessed_at.to_rfc2822(),
-                    });
-                    count += 1;
-                });
-
-                table = Table::new(display_contents)
-                    .with(Style::modern_rounded())
-                    .with(Panel::header("Entries in The Store"))
-                    .to_string();
-            }
-
-            bunt::println!("{}", table);
-
-            bunt::println!("The entry {$blue}{}{/$} can be popped", entries[0].path);
-
-            bunt::println!("Use {$green}ynk paste{/$} to paste the files");
+            handle_list(args, conn).await;
         }
         Command::Exit => {
             bunt::println!("{$yellow}Bye!{/$}");
@@ -217,6 +120,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             if args.yes {
                 let choice =
                     inquire::Confirm::new("Are you sure you want to clear all the copied files?")
+                        .with_default(false)
                         .prompt()
                         .unwrap();
 
@@ -238,12 +142,10 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 std::process::exit(1);
             }
 
-            let mut choices = entries
+            let choices = entries
                 .iter()
                 .map(utils::wrap_from_entry)
                 .collect::<HashMap<_, _>>();
-
-            choices.insert("-><-".to_string(), PathBuf::from("PROCEED_WITH_DELETION"));
 
             let mut to_delete = Vec::new();
 
@@ -257,29 +159,36 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                             std::process::exit(1);
                         }
 
-                        PathBuf::from(entries[index as usize].path.clone())
+                        PathBuf::from(entries.iter().find(|x| x.id == index).unwrap().path.clone())
                     })
                     .collect::<Vec<_>>();
             } else {
-                let mut delete_choices = choices
+                let delete_choices = choices
                     .iter()
                     .map(|(_, p)| p.to_string_lossy().to_string())
                     .collect::<Vec<_>>();
 
-                loop {
-                    let choice =
-                        inquire::Select::new("Select a file to delete", delete_choices.clone())
-                            .prompt()
-                            .unwrap();
+                handle_list(args, conn).await;
+                bunt::println!(
+                    "{$yellow}Enter the id of the files to delete seperate by a space{/$}"
+                );
+                let indexes = inquire::Text::new("Enter the indexes")
+                    .with_placeholder("Ex: 1 2 3 4")
+                    .prompt()
+                    .unwrap();
 
-                    if choice == "Proceed" {
-                        break;
+                let indexes = indexes.split_whitespace().collect::<Vec<&str>>();
+                indexes.iter().for_each(|x| {
+                    let index = x.parse::<i32>().unwrap();
+                    if index as usize > delete_choices.len() {
+                        bunt::println!("{$red}Invalid index{/$}");
+                        std::process::exit(1);
                     }
 
-                    to_delete.push(choices.get(&choice).unwrap().clone());
-                    delete_choices
-                        .remove(delete_choices.iter().position(|x| x == &choice).unwrap());
-                }
+                    to_delete.push(PathBuf::from(
+                        entries.iter().find(|x| x.id == index).unwrap().path.clone(),
+                    ));
+                });
             }
 
             to_delete.iter().for_each(|x| {
@@ -455,10 +364,11 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
 
             files.iter().for_each(|(_, path)| {
                 // update access time
-                db::update_accessed_at(conn, path.to_str().unwrap()).expect("Could not update access time");
+                db::update_accessed_at(conn, path.to_str().unwrap())
+                    .expect("Could not update access time");
 
-                if paste_config.delete{
-                db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
+                if paste_config.delete {
+                    db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
                 }
             });
         }
@@ -499,4 +409,104 @@ async fn copy_paste(
     pb.inc(1);
 
     Ok(())
+}
+
+async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
+    let mut entries = db::get_all(conn).expect("Could not get entries from database");
+
+    sort_entries(&mut entries);
+
+    if entries.is_empty() {
+        bunt::println!("{$red}No entries in the store{/$}");
+        std::process::exit(1);
+    }
+
+    bunt::println!("{$green}{}{/$} entry in the store", entries.len());
+    let mut count = 0;
+
+    #[derive(Tabled)]
+    struct DisplayFiles {
+        id: usize,
+        path: String,
+        count: usize,
+        size: String,
+        last_accessed: String,
+    }
+
+    #[derive(Tabled)]
+    struct PartialDisplayFiles {
+        id: usize,
+        path: String,
+        last_accessed: String,
+    }
+
+    let mut paste_config = args;
+    paste_config.specific = None;
+
+    static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
+    LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
+        filter_file: false,
+        full_path: false,
+        strict: false,
+        hidden: true,
+        respect_ignore: false,
+    });
+
+    // TODO: Better way to handle the calculate size flag
+    #[allow(unused_assignments)]
+    let mut table = String::new();
+
+    if paste_config.calculate_size {
+        let mut display_contents = Vec::new();
+        entries.iter().for_each(|x| {
+            let mut file_count = 1;
+            let mut size = 0.0;
+
+            utils::convert_size(size);
+
+            if PathBuf::from(x.path.clone()).is_dir() {
+                let (files, raw_size) = utils::list_dir(&x.path, LIST_DIR_CONFIG.get().unwrap());
+
+                file_count = files.len();
+                size = raw_size;
+            } else {
+                size = PathBuf::from(x.path.clone()).metadata().unwrap().len() as f64;
+            }
+
+            display_contents.push(DisplayFiles {
+                id: x.id as usize,
+                path: x.path.clone(),
+                count: file_count,
+                size: utils::convert_size(size),
+                last_accessed: x.accessed_at.to_rfc2822(),
+            });
+            count += 1;
+        });
+
+        table = Table::new(display_contents)
+            .with(Style::modern_rounded())
+            .with(Panel::header("Entries in The Store"))
+            .to_string();
+    } else {
+        let mut display_contents = Vec::new();
+        entries.iter().for_each(|x| {
+            display_contents.push(PartialDisplayFiles {
+                id: x.id as usize,
+                path: x.path.clone(),
+                last_accessed: x.accessed_at.to_rfc2822(),
+            });
+            count += 1;
+        });
+
+        table = Table::new(display_contents)
+            .with(Style::modern_rounded())
+            .with(Panel::header("Entries in The Store"))
+            .to_string();
+    }
+
+    bunt::println!("{}", table);
+
+    bunt::println!("The entry {$blue}{}{/$} can be popped", entries[0].path);
+
+    bunt::println!("Use {$green}ynk paste{/$} to paste the files");
 }
