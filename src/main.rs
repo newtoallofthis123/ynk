@@ -83,6 +83,9 @@ struct Args {
 
     #[arg(required = false, short, long, help = "Don't ask for confirmation")]
     yes: bool,
+
+    #[arg(required = false, long, help = "Show size of the files in the list")]
+    size: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]

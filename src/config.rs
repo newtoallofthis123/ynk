@@ -49,7 +49,7 @@ impl ConstructedArgs {
             no_ignore: arg_or_config(args.no_ignore, config.no_ignore),
             delete: arg_or_config(args.delete, config.delete),
             range: args.range,
-            calculate_size: config.calculate_size,
+            calculate_size: arg_or_config(args.size, config.calculate_size),
             specific: None,
             yes: arg_or_config(args.yes, config.prompt),
         }
