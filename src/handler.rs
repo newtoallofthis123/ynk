@@ -73,8 +73,19 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                     std::process::exit(1);
                 }
 
+                let path = if args.preserve_structure {
+                    x.clone()
+                } else {
+                    PathBuf::from(x)
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string()
+                };
+
                 files.insert(
-                    utils::check_slash(x),
+                    utils::check_slash(&path),
                     PathBuf::from(x).canonicalize().unwrap(),
                 );
             });

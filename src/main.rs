@@ -69,7 +69,7 @@ struct Args {
         required = false,
         short,
         long,
-        help = "Delete the file from the store, but not from the disk"
+        help = "Delete the file from the store / clipboard after pasting it"
     )]
     delete: bool,
 
@@ -86,6 +86,13 @@ struct Args {
 
     #[arg(required = false, long, help = "Show size of the files in the list")]
     size: bool,
+
+    #[arg(
+        required = false,
+        long,
+        help = "Preserve the Directory Structure for an individual file"
+    )]
+    preserve_structure: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]

@@ -36,6 +36,7 @@ pub struct ConstructedArgs {
     pub specific: Option<String>,
     pub yes: bool,
     pub calculate_size: bool,
+    pub preserve_structure: bool,
 }
 
 impl ConstructedArgs {
@@ -52,6 +53,7 @@ impl ConstructedArgs {
             calculate_size: arg_or_config(args.size, config.calculate_size),
             specific: None,
             yes: arg_or_config(args.yes, config.prompt),
+            preserve_structure: arg_or_config(args.preserve_structure, config.preserve_structure),
         }
     }
 }
@@ -80,6 +82,7 @@ fn default_config() -> Result<String, toml::ser::Error> {
         prompt: true,
         show_splash: true,
         calculate_size: true,
+        preserve_structure: false,
     };
 
     toml::to_string_pretty(&config)
@@ -95,6 +98,7 @@ pub struct Config {
     pub prompt: bool,
     pub show_splash: bool,
     pub calculate_size: bool,
+    pub preserve_structure: bool,
 }
 
 /// Convert config from string to Config struct
