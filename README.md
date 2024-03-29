@@ -55,7 +55,7 @@ Pasting is also quite simple. Just use the `paste` command. Here is where you ge
 > **WARNING**: Paste will paste all the files and directories in the store. If you want to specify a specific entry, use `ynk list`, get the index of the entry, and then use `ynk paste -r <index>`, or just use `ynk pop`.
 
 ```bash
-ynk paste [-n|--no-ignore] [--hidden] [-s|--strict] [-f|--force] [--dry-run] [-r|--range <start:end>] [-d|--delete] FOLDER_NAME
+ynk paste [-n|--no-ignore] [--hidden] [-s|--strict] [-f|--force] [--dry-run] [-r|--range <start..end>] [--id <id1,id2>] [-d|--delete] FOLDER_NAME
 ```
 
 Before passing in the options, know that the `paste` command is highly optimized for IO tasks. All the way from reading the directory structure (walking the directory tree) to reading and writing files. It uses a lot of threads to do this. So it's very fast.
@@ -73,6 +73,7 @@ It is not the smartest yet, so make sure that you specify the range correctly. I
 - `--preserve`: This will preserve the natural path of the filename and use, it as is. For example, if you use
 ynk add ../README.md --preserve, when you paste it, it will actually `../` to the path and paste it in the parent directory.
 - `--size`: This will print out the size of the files and directories that are being listed, can be only used with list command.
+- `--id`: This will paste only the files with the specified id's. Overrides the range option.
 
 ### Popping
 
