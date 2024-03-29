@@ -184,15 +184,6 @@ pub fn _is_git_repo(path: &str) -> bool {
     git_path.exists()
 }
 
-pub fn parse_range(range: &str) -> (usize, usize) {
-    let range = range.split(':').collect::<Vec<&str>>();
-
-    let start = range[0].parse::<usize>().unwrap();
-    let end = range[1].parse::<usize>().unwrap();
-
-    (start, end)
-}
-
 pub fn check_version() {
     let pkg_name = env!("CARGO_PKG_NAME");
     let current_version = env!("CARGO_PKG_VERSION");

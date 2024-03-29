@@ -93,6 +93,13 @@ struct Args {
         help = "Preserve the Directory Structure for an individual file"
     )]
     preserve_structure: bool,
+
+    #[arg(
+        required = false,
+        long,
+        help = "Directly select the id from the clipboard"
+    )]
+    id: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

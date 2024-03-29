@@ -18,7 +18,7 @@ use tokio::{sync::Mutex, task};
 use crate::{
     config::{get_config_from_file, write_file},
     db, files,
-    utils::{self, does_file_exist, list_dir, parse_range, sort_entries, ListDirConfig},
+    utils::{self, does_file_exist, list_dir, sort_entries, ListDirConfig},
     Command, ConstructedArgs,
 };
 
@@ -242,57 +242,39 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
     };
 }
 
-/// Private async function to handle the paste command
-async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection) {
-    let mut s_files = db::get_all(conn).expect("Could not get entries from database");
-
-    sort_entries(&mut s_files);
-
-    let s_files = s_files
-        .iter()
-        .map(utils::wrap_from_entry)
-        .filter(|(_, path)| {
-            if paste_config.specific.is_some() {
-                return path.to_str().unwrap() == paste_config.specific.as_ref().unwrap();
-            }
-            true
-        })
-        .collect::<HashMap<_, _>>();
-
-    let files = if paste_config.range.is_some() {
-        let range = paste_config.range.unwrap();
-        if range.contains(':') {
-            let range_no = range.split(':').collect::<Vec<&str>>();
-            if range_no.len() != 2 || range_no.len() > s_files.len() {
-                bunt::println!("{$red}Invalid range{/$}");
-                std::process::exit(1);
-            } else if range_no[0].parse::<usize>().is_err() || range_no[1].parse::<usize>().is_err()
-            {
-                bunt::println!("{$red}Invalid range{/$}");
-                std::process::exit(1);
-            }
-            let (start, end) = parse_range(&range);
-            s_files
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| *i >= start && *i <= end)
-                .map(|(_, (n, p))| (n.clone(), p.clone()))
-                .collect::<HashMap<_, _>>()
-        } else {
-            let index = range.parse::<usize>().unwrap();
-            if index > s_files.len() {
-                bunt::println!("{$red}Invalid range{/$}");
-                std::process::exit(1);
-            }
-            s_files
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| *i == index)
-                .map(|(_, (n, p))| (n.clone(), p.clone()))
-                .collect::<HashMap<_, _>>()
+fn parse_range(range: String, s_files: &[db::Entry]) -> Vec<(String, PathBuf)> {
+    let mut files = Vec::new();
+    if range.contains("..") {
+        let range = range.split("..").collect::<Vec<&str>>();
+        let start = range[0].parse::<usize>().unwrap();
+        let end = range[1].parse::<usize>().unwrap();
+        for i in start..=end {
+            let entry = s_files.iter().find(|x| x.id as usize == i).unwrap();
+            files.push(utils::wrap_from_entry(entry));
         }
     } else {
-        s_files
+        let ids = range
+            .split(',')
+            .map(|x| x.parse::<usize>().unwrap())
+            .collect::<Vec<usize>>();
+        for i in ids {
+            let entry = s_files.iter().find(|x| x.id as usize == i).unwrap();
+            files.push(utils::wrap_from_entry(entry));
+        }
+    };
+
+    files
+}
+
+/// Private async function to handle the paste command
+async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection) {
+    let s_files = db::get_all(conn).expect("Could not get entries from database");
+
+    let range = paste_config.range.clone();
+    let files = if let Some(range) = range {
+        parse_range(range, &s_files)
+    } else {
+        s_files.iter().map(utils::wrap_from_entry).collect()
     };
 
     let user_target = paste_config
