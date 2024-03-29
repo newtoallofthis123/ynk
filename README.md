@@ -70,6 +70,9 @@ Moreover, it also by default respects your `.gitignore` file and doesn't copy ov
 - `-r` or `--range`: This will make it paste only a range of files and directories. This is useful when you want to paste only a few files and directories from a large list. You can specify the range in the following format: `start:end`.
 It is not the smartest yet, so make sure that you specify the range correctly. It will throw an error if the range is invalid.
 - `-d` or `--delete`: This will make it delete the files and directories from stored in the database after pasting them. Not from the disk.
+- `--preserve`: This will preserve the natural path of the filename and use, it as is. For example, if you use
+ynk add ../README.md --preserve, when you paste it, it will actually `../` to the path and paste it in the parent directory.
+- `--size`: This will print out the size of the files and directories that are being listed, can be only used with list command.
 
 ### Popping
 
