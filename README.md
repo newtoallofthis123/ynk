@@ -18,12 +18,6 @@ Once you have cargo installed, you can install ynk by running the following comm
 cargo install ynk
 ```
 
-Or, you can also run ~~the install.sh or~~ the `install_linux.py` script in the root of the repository. This will install ynk in `/usr/local/bin` and will also create a `yank` alias for `ynk`.
-
-```bash
-./install.sh
-```
-
 ### Windows
 
 The best way to install ynk on Windows is to use cargo.
