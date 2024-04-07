@@ -79,10 +79,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                     utils::check_slash(x)
                 };
 
-                files.insert(
-                    path,
-                    PathBuf::from(x).canonicalize().unwrap(),
-                );
+                files.insert(path, PathBuf::from(x).canonicalize().unwrap());
             });
 
             let entries = utils::construct_entry_builders(&files)
@@ -268,6 +265,12 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
     let range = paste_config.range.clone();
     let files = if let Some(range) = range {
         parse_range(range, &s_files)
+    } else if let Some(specific_path) = paste_config.specific {
+        s_files
+            .iter()
+            .filter(|e| e.path == specific_path)
+            .map(utils::wrap_from_entry)
+            .collect()
     } else {
         s_files.iter().map(utils::wrap_from_entry).collect()
     };
@@ -348,7 +351,10 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
                 pb.elapsed().as_secs_f32()
             ));
 
-            bunt::println!("Total size of files: {$green}{}{/$} bytes", file_sizes);
+            bunt::println!(
+                "Total size of files: {$green}{}{/$}",
+                utils::convert_size(file_sizes)
+            );
 
             files.iter().for_each(|(_, path)| {
                 // update access time

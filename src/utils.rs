@@ -145,7 +145,6 @@ pub fn wrap_from_path(root: &Path, path: &Path) -> (String, PathBuf) {
     )
 }
 
-
 /// Strip weird stuff from a path
 /// like ./ and /
 pub fn check_slash(path: &str) -> String {
@@ -190,21 +189,26 @@ pub fn check_version() {
     }
 }
 
-pub fn convert_size(size: f64) -> String {
-    let mut size = size;
-    let mut unit = "KB";
-
-    if size > 1024.0 {
-        size /= 1024.0;
-        unit = "MB";
+/// Converts the size from bytes to human readable string
+/// Borrowed from https://github.com/banyan/rust-pretty-bytes
+pub fn convert_size(num: f64) -> String {
+    let negative = if num.is_sign_positive() { "" } else { "-" };
+    let num = num.abs();
+    let units = ["B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+    if num < 1_f64 {
+        return format!("{}{} {}", negative, num, "B");
     }
-
-    if size > 1024.0 {
-        size /= 1024.0;
-        unit = "GB";
-    }
-
-    format!("{:.2} {}", size, unit)
+    let delimiter = 1000_f64;
+    let exponent = std::cmp::min(
+        (num.ln() / delimiter.ln()).floor() as i32,
+        (units.len() - 1) as i32,
+    );
+    let pretty_bytes = format!("{:.2}", num / delimiter.powi(exponent))
+        .parse::<f64>()
+        .unwrap()
+        * 1_f64;
+    let unit = units[exponent as usize];
+    format!("{}{} {}", negative, pretty_bytes, unit)
 }
 
 pub fn sort_entries(entries: &mut [Entry]) {
