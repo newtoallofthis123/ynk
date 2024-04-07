@@ -8,7 +8,7 @@ use dirs::{config_dir, home_dir};
 const NAME: &str = "ynk";
 
 /// This function returns the path to the store directory
-/// ie the directory where all the files related to SuperPaste are stored
+/// ie the directory where all the files related to ynk are stored
 ///
 /// # Panics
 ///

@@ -76,16 +76,11 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 let path = if args.preserve_structure {
                     x.clone()
                 } else {
-                    PathBuf::from(x)
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string()
+                    utils::check_slash(x)
                 };
 
                 files.insert(
-                    utils::check_slash(&path),
+                    path,
                     PathBuf::from(x).canonicalize().unwrap(),
                 );
             });

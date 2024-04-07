@@ -145,13 +145,6 @@ pub fn wrap_from_path(root: &Path, path: &Path) -> (String, PathBuf) {
     )
 }
 
-pub fn _builder_from_entry(entry: &Entry) -> EntryBuilder {
-    EntryBuilder {
-        name: entry.name.clone(),
-        path: entry.path.clone(),
-        is_dir: entry.is_dir,
-    }
-}
 
 /// Strip weird stuff from a path
 /// like ./ and /
