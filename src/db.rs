@@ -29,6 +29,8 @@ enum Store {
     CreatedAt,
 }
 
+/// Represents a Database Entry
+/// It directly reflects the database
 #[derive(Debug)]
 pub struct Entry {
     pub id: i32,
@@ -39,6 +41,7 @@ pub struct Entry {
     pub created_at: DateTime<Local>,
 }
 
+/// Builder struct that converts to an Entry
 #[derive(Debug, Clone)]
 pub struct EntryBuilder {
     pub name: String,
@@ -56,6 +59,7 @@ impl EntryBuilder {
     }
 }
 
+/// Prepares the Database, creates all the tables and defines the schema
 pub fn prep_db(conn: &Connection) -> rusqlite::Result<usize, rusqlite::Error> {
     let query = Table::create()
         .table(Store::Table)
