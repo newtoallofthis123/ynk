@@ -194,7 +194,7 @@ pub fn check_version() {
 pub fn convert_size(num: f64) -> String {
     let negative = if num.is_sign_positive() { "" } else { "-" };
     let num = num.abs();
-    let units = ["B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+    let units = ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
     if num < 1_f64 {
         return format!("{}{} {}", negative, num, "B");
     }
