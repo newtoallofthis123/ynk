@@ -6,6 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use colored::Colorize;
 use hashbrown::HashMap;
 use ignore::{WalkBuilder, WalkState};
 use update_informer::{registry, Check};
@@ -73,7 +74,7 @@ pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> (Vec<PathBuf>, f64) {
                     match entry {
                         Ok(entry) => entry,
                         Err(err) => {
-                            bunt::println!("{$red}Error accessing entry: {:?}{/$}", err);
+                            println!("{}: {:?}", "Error accessing entry:".red(), err);
                             return WalkState::Quit;
                         }
                     }
@@ -163,9 +164,9 @@ pub fn check_slash(path: &str) -> String {
 
 /// Directly print a cool splash screen
 pub fn print_splash_screen() {
-    bunt::println!("{$blue}+-+-+-+{/$}");
-    bunt::println!("{$green}Y{$red}(a){/$}NK{/$}");
-    bunt::println!("{$yellow}+-+-+-+{/$}");
+    println!("{}", "+-+-+-+".blue());
+    println!("{}", "Y(a)NK".green());
+    println!("{}", "+-+-+-+".blue());
 }
 
 /// Checks if a directory is a git repo
@@ -182,9 +183,8 @@ pub fn check_version() {
 
     let informer = update_informer::new(registry::Crates, pkg_name, current_version);
     if let Some(version) = informer.check_version().unwrap() {
-        bunt::println!(
-            "A new version of {$green}ynk{/$} is available: {$yellow}{}{/$}",
-            version
+        println!("A new version of ynk is available:: {}",
+            version.to_string().yellow()
         );
     }
 }

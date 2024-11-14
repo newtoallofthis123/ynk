@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use bunt::println;
+use colored::Colorize;
 use hashbrown::HashMap;
 use indicatif::{ProgressBar, ProgressStyle};
 use tabled::{
@@ -48,8 +48,8 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
         Command::Add => {
             let mut files: HashMap<String, PathBuf> = HashMap::new();
             let req = args.files.unwrap_or_else(|| {
-                bunt::println!("{$yellow}No files or directories specified{/$}");
-                bunt::println!("Copying the current directory");
+                println!("{}", "No files or directories specified".yellow());
+                println!("Copying the current directory");
 
                 if args.yes {
                     let choice = inquire::Confirm::new("Do you want to continue?")
@@ -66,9 +66,8 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             });
             req.iter().for_each(|x| {
                 if !does_file_exist(x) {
-                    bunt::println!(
-                        "{$red}File or directory with path \"{$white}{}{/$}\" does not exist.{/$}",
-                        x
+                    println!("{} \"{}\" {}",
+                        "File or directory with path".red(), x.red(), "does not exist.".red(),
                     );
                     std::process::exit(1);
                 }
@@ -89,7 +88,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 })
                 .collect::<Vec<_>>();
 
-            bunt::println!("Copied {$green}{}{/$} files", entries.len());
+            println!("Copied {} files", entries.len());
         }
         Command::Paste => {
             let mut paste_config = args;
@@ -101,7 +100,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             let entry = match db::pop_one(conn) {
                 Ok(entry) => entry,
                 Err(e) => {
-                    bunt::println!("{$red}Could not pop entry from database: {:?}{/$}", e);
+                    println!("Could not pop entry from database: {:?}", e);
                     std::process::exit(1);
                 }
             };
@@ -116,7 +115,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             handle_list(args, conn).await;
         }
         Command::Exit => {
-            bunt::println!("{$yellow}Bye!{/$}");
+            println!("Bye!");
             std::process::exit(0);
         }
         Command::Clear => {
@@ -128,12 +127,12 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                         .unwrap();
 
                 if !choice {
-                    bunt::println!("Ok! {$red}Quitting{/$}");
+                    println!("Ok! Quitting");
                 }
             }
 
             db::delete_all(conn).expect("Unable to delete the indexes");
-            bunt::println!("{$green}Emptied{/$} the store");
+            println!("Emptied the store");
         }
         Command::Delete => {
             let mut entries = db::get_all(conn).expect("Could not get entries from database");
@@ -141,7 +140,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             sort_entries(&mut entries);
 
             if entries.is_empty() {
-                bunt::println!("{$red}No entries in the store{/$}");
+                println!("No entries in the store");
                 std::process::exit(1);
             }
 
@@ -158,7 +157,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                     .map(|x| {
                         let index = x.parse::<i32>().unwrap();
                         if index as usize > choices.len() {
-                            bunt::println!("{$red}Invalid index{/$}");
+                            println!("Invalid index");
                             std::process::exit(1);
                         }
 
@@ -172,8 +171,8 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                     .collect::<Vec<_>>();
 
                 handle_list(args, conn).await;
-                bunt::println!(
-                    "{$yellow}Enter the id of the files to delete seperate by a space{/$}"
+                println!("{}",
+                    "Enter the id of the files to delete seperate by a space".yellow()
                 );
                 let indexes = inquire::Text::new("Enter the indexes")
                     .with_placeholder("Ex: 1 2 3 4")
@@ -184,7 +183,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 indexes.iter().for_each(|x| {
                     let index = x.parse::<i32>().unwrap();
                     if index as usize > delete_choices.len() {
-                        bunt::println!("{$red}Invalid index{/$}");
+                        println!("Invalid index");
                         std::process::exit(1);
                     }
 
@@ -198,13 +197,13 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 db::delete_entry(conn, x.to_str().unwrap()).expect("Unable to delete entry");
             });
 
-            bunt::println!("Deleted {$green}{}{/$} files", to_delete.len());
+            println!("Deleted {} files", to_delete.len().to_string().green());
         }
         Command::Empty => {
-            bunt::println!("{$red}Invalid Command{/$}");
+            println!("Invalid Command");
         }
         Command::Config => {
-            bunt::println!("{$yellow}Current Config{/$}");
+            println!("Current Config");
             let config = get_config_from_file();
             println!("{:#?}", config);
 
@@ -215,7 +214,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                     .unwrap();
 
                 if !choice {
-                    bunt::println!("Ok! {$red}Quitting{/$}");
+                    println!("Ok! Quitting");
                     std::process::exit(0);
                 }
             }
@@ -228,8 +227,8 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
 
             write_file(&files::get_config_path(), edited_config);
 
-            bunt::println!("{$green}Config saved!{/$}");
-            bunt::println!("Run {$white}ynk config{/$} to see the changes");
+            println!("{}", "Config saved!".green());
+            println!("Run ynk config to see the changes");
         }
     };
 }
@@ -317,8 +316,8 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
 
     let tasks = final_files.iter().map(|(name, path)| {
         if !PathBuf::from(user_target.clone()).exists() {
-            bunt::println!("{$yellow}Target directory does not exist{/$}");
-            bunt::println!("Creating the directory");
+            println!("{}", "Target directory does not exist".yellow());
+            println!("Creating the directory");
             std::fs::create_dir(&user_target).expect("Could not create directory");
         }
         let target_file = PathBuf::from(user_target.clone()).join(name);
@@ -339,7 +338,7 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
 
             res.iter().for_each(|x| {
                     if let Err(e) = x {
-                        bunt::println!("{$red}Failed to paste file: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
+                        println!("Failed to paste file: {:?}\nUse the -v flag to see the error", e);
                     } else{
                         count += 1 }
                 });
@@ -351,9 +350,9 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
                 pb.elapsed().as_secs_f32()
             ));
 
-            bunt::println!(
-                "Total size of files: {$green}{}{/$}",
-                utils::convert_size(file_sizes)
+            println!(
+                "Total size of files: {}",
+                utils::convert_size(file_sizes).to_string().green()
             );
 
             files.iter().for_each(|(_, path)| {
@@ -367,7 +366,7 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
             });
         }
         Err(e) => {
-            bunt::println!("{$red}Failed to paste files: {:?}{/$}\nUse the {$white}-v{/$} flag to see the error", e);
+            println!("Failed to paste files: {:?}\nUse the -v flag to see the error", e);
         }
     }
 }
@@ -388,12 +387,12 @@ async fn copy_paste(
     let contents = tokio::fs::read(source).await?;
 
     if target.exists() && !overwrite {
-        bunt::println!(
-            "File {$yellow}{}{/$} already exists",
+        println!(
+            "File {} already exists",
             target.to_str().unwrap()
         );
 
-        bunt::println!("Use the {$green}--overwrite{/$} flag to overwrite the any and all files");
+        println!("Use the --overwrite flag to overwrite the any and all files");
         std::process::exit(1);
     }
 
@@ -411,11 +410,11 @@ async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
     sort_entries(&mut entries);
 
     if entries.is_empty() {
-        bunt::println!("{$red}No entries in the store{/$}");
+        println!("{}", "No entries in the store".red());
         std::process::exit(1);
     }
 
-    bunt::println!("{$green}{}{/$} entry in the store", entries.len());
+    println!("{}  entries in the store", entries.len().to_string().green());
     let mut count = 0;
 
     #[derive(Tabled)]
@@ -498,9 +497,9 @@ async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
             .to_string();
     }
 
-    bunt::println!("{}", table);
+    println!("{}", table);
 
-    bunt::println!("The entry {$blue}{}{/$} can be popped", entries[0].path);
+    println!("The entry {} can be popped", entries[0].path.blue(), );
 
-    bunt::println!("Use {$green}ynk paste{/$} to paste the files");
+    println!("Use ynk paste to paste the files");
 }

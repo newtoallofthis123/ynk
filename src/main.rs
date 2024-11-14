@@ -6,6 +6,7 @@ use correct_word::{correct_word, Algorithm};
 use files::get_config_path;
 use human_panic::setup_panic;
 use utils::{check_version, print_splash_screen};
+use colored::Colorize;
 
 mod config;
 mod db;
@@ -155,7 +156,7 @@ async fn main() {
     let mut cmd = match args.clone().cmd {
         Some(cmd) => Command::from(&cmd),
         None => {
-            bunt::println!("{$yellow}Interactive Mode{/$}");
+            println!("{}", "Interactive Mode".red());
             get_cmd()
         }
     };
@@ -163,10 +164,9 @@ async fn main() {
     if cmd == Command::Empty {
         if let Some(temp_cmd) = temp_arg.cmd {
             if PathBuf::from(temp_cmd.clone()).exists() {
-                bunt::println!("You seem to have entered a {$red}file path{/$}");
-                bunt::println!(
-                    "You can use {$blue}ynk add {}{/$} to add to the store",
-                    temp_cmd
+                print!("You seem to have entered a");
+                println!("{}",  "file path".red());
+                println!("You can use {} {} to add to the store", "ynk add ".blue(), temp_cmd,
                 );
                 std::process::exit(0);
             } else if !temp_cmd.is_empty() {
@@ -177,7 +177,7 @@ async fn main() {
                     Some(5),
                 );
                 if let Some(word) = word.word {
-                    bunt::println!("You seem to have meant {$blue}{}{/$}", word);
+                    println!("You seem to have meant {}", word.blue());
                     if !inquire::Confirm::new("Do you want to continue?")
                         .with_default(true)
                         .prompt()
@@ -192,9 +192,9 @@ async fn main() {
                 }
             }
         } else {
-            bunt::println!(
-                "{$red}Invalid Command{/$} \"{$green}{}{/$}\"",
-                &temp_arg.cmd.unwrap()
+            println!("{} {}",
+                "Invalid Command".red(),
+                &temp_arg.cmd.unwrap().red()
             );
             cmd = get_cmd();
         }
