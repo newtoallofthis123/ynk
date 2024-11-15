@@ -66,8 +66,11 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             });
             req.iter().for_each(|x| {
                 if !does_file_exist(x) {
-                    println!("{} \"{}\" {}",
-                        "File or directory with path".red(), x.red(), "does not exist.".red(),
+                    println!(
+                        "{} \"{}\" {}",
+                        "File or directory with path".red(),
+                        x.red(),
+                        "does not exist.".red(),
                     );
                     std::process::exit(1);
                 }
@@ -156,41 +159,50 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 to_delete = indexes
                     .iter()
                     .map(|x| {
-                        let index = x.parse::<i32>().unwrap();
-                        if index as usize > choices.len() {
-                            println!("Invalid index");
+                        let index = x.parse::<i32>();
+                        if let Ok(idx) = index {
+                            if let Some(entry) = entries.iter().find(|x| x.id == idx) {
+                                PathBuf::from(entry.path.clone())
+                            } else {
+                                println!("{}", "Invalid index".red());
+                                std::process::exit(1);
+                            }
+                        } else if let Some(entry) = choices.get(x) {
+                            entry.clone()
+                        } else {
+                            println!("{}", "Invalid index".red());
                             std::process::exit(1);
                         }
-
-                        PathBuf::from(entries.iter().find(|x| x.id == index).unwrap().path.clone())
                     })
                     .collect::<Vec<_>>();
             } else {
-                let delete_choices = choices
-                    .iter()
-                    .map(|(_, p)| p.to_string_lossy().to_string())
-                    .collect::<Vec<_>>();
-
                 handle_list(args, conn).await;
-                println!("{}",
+                println!(
+                    "{}",
                     "Enter the id of the files to delete seperate by a space".yellow()
                 );
-                let indexes = inquire::Text::new("Enter the indexes")
-                    .with_placeholder("Ex: 1 2 3 4")
+                let indexes = inquire::Text::new("Enter the indexes or the names")
+                    .with_placeholder("Ex: 1 README.md 4")
                     .prompt()
                     .unwrap();
 
                 let indexes = indexes.split_whitespace().collect::<Vec<&str>>();
                 indexes.iter().for_each(|x| {
-                    let index = x.parse::<i32>().unwrap();
-                    if index as usize > delete_choices.len() {
-                        println!("Invalid index");
+                    let index = x.parse::<i32>();
+                    if let Ok(idx) = index {
+                        let e = entries.iter().find(|x| x.id == idx);
+                        if let Some(entry) = e {
+                            to_delete.push(PathBuf::from(entry.path.clone()));
+                        } else {
+                            println!("{}", "Invalid index".red());
+                            std::process::exit(1);
+                        }
+                    } else if let Some(entry) = choices.get(*x) {
+                        to_delete.push(entry.clone());
+                    } else {
+                        println!("{}", "Invalid index".red());
                         std::process::exit(1);
                     }
-
-                    to_delete.push(PathBuf::from(
-                        entries.iter().find(|x| x.id == index).unwrap().path.clone(),
-                    ));
                 });
             }
 
@@ -338,11 +350,15 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
             let mut count: u64 = 0;
 
             res.iter().for_each(|x| {
-                    if let Err(e) = x {
-                        println!("Failed to paste file: {:?}\nUse the -v flag to see the error", e);
-                    } else{
-                        count += 1 }
-                });
+                if let Err(e) = x {
+                    println!(
+                        "Failed to paste file: {:?}\nUse the -v flag to see the error",
+                        e
+                    );
+                } else {
+                    count += 1
+                }
+            });
 
             let pb = pb.lock().await;
             pb.finish_with_message(format!(
@@ -367,7 +383,10 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
             });
         }
         Err(e) => {
-            println!("Failed to paste files: {:?}\nUse the -v flag to see the error", e);
+            println!(
+                "Failed to paste files: {:?}\nUse the -v flag to see the error",
+                e
+            );
         }
     }
 }
@@ -388,10 +407,7 @@ async fn copy_paste(
     let contents = tokio::fs::read(source).await?;
 
     if target.exists() && !overwrite {
-        println!(
-            "File {} already exists",
-            target.to_str().unwrap()
-        );
+        println!("File {} already exists", target.to_str().unwrap());
 
         println!("Use the --overwrite flag to overwrite the any and all files");
         std::process::exit(1);
@@ -415,7 +431,10 @@ async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
         std::process::exit(1);
     }
 
-    println!("{}  entries in the store", entries.len().to_string().green());
+    println!(
+        "{}  entries in the store",
+        entries.len().to_string().green()
+    );
     let mut count = 0;
 
     #[derive(Tabled)]
@@ -500,7 +519,7 @@ async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
 
     println!("{}", table);
 
-    println!("The entry {} can be popped", entries[0].path.blue(), );
+    println!("The entry {} can be popped", entries[0].path.blue(),);
 
     println!("Use ynk paste to paste the files");
 }
