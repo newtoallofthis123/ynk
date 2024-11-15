@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 
 use clap::{command, Parser};
+use colored::Colorize;
 use config::{get_config_from_file, write_default_config, ConstructedArgs};
 use correct_word::{correct_word, Algorithm};
 use files::get_config_path;
 use human_panic::setup_panic;
 use utils::{check_version, print_splash_screen};
-use colored::Colorize;
 
 mod config;
 mod db;
@@ -161,14 +161,13 @@ async fn main() {
         }
     };
 
+    let mut constructed_args = ConstructedArgs::new(args, config);
+
     if cmd == Command::Empty {
         if let Some(temp_cmd) = temp_arg.cmd {
             if PathBuf::from(temp_cmd.clone()).exists() {
-                print!("You seem to have entered a");
-                println!("{}",  "file path".red());
-                println!("You can use {} {} to add to the store", "ynk add ".blue(), temp_cmd,
-                );
-                std::process::exit(0);
+                cmd = Command::Add;
+                constructed_args.files = Some(vec![temp_cmd]);
             } else if !temp_cmd.is_empty() {
                 let word = correct_word(
                     Algorithm::Levenshtein,
@@ -192,7 +191,8 @@ async fn main() {
                 }
             }
         } else {
-            println!("{} {}",
+            println!(
+                "{} {}",
                 "Invalid Command".red(),
                 &temp_arg.cmd.unwrap().red()
             );
@@ -206,8 +206,6 @@ async fn main() {
     let conn = db::connect_to_db().expect("Could not connect to database");
 
     db::prep_db(&conn).expect("Could not prepare database");
-
-    let constructed_args = ConstructedArgs::new(args, config);
 
     check_version();
 
