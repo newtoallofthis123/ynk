@@ -142,10 +142,10 @@ The db functionality is all abstracted away in a separate module, so it's easy t
 
 ## TODO
 
-- [ ] Add a `--force` option to overwrite files and directories.
+- [x] Add a `--force` option to overwrite files and directories.
 - [x] Add a `--target` option to paste files and directories in a specific directory. (release 0.1.2)
-- [ ] Add config file support.
-- [ ] Add permanent storage option.
+- [x] Add config file support.
+- [x] Add permanent storage option.
 - [ ] More explicit error handling.
 
 ## License
