@@ -9,6 +9,7 @@ use std::{
 use colored::Colorize;
 use hashbrown::HashMap;
 use ignore::{WalkBuilder, WalkState};
+use path_abs::PathInfo;
 use update_informer::{registry, Check};
 
 use crate::db::{Entry, EntryBuilder};
@@ -148,7 +149,7 @@ pub fn wrap_from_path(root: &Path, path: &Path) -> (String, PathBuf) {
 
 /// Parses the file name from a path
 pub fn parse_file_name(path: &str) -> String {
-    let path = Path::new(path);
+    let path = Path::new(path).canonicalize().unwrap();
     let file_name = path.file_name().unwrap().to_str().unwrap();
 
     file_name.to_string()
