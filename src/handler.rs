@@ -75,7 +75,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 let path = if args.preserve_structure {
                     x.clone()
                 } else {
-                    utils::check_slash(x)
+                    utils::parse_file_name(x)
                 };
 
                 files.insert(path, PathBuf::from(x).canonicalize().unwrap());
@@ -108,6 +108,7 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
             let mut paste_config = args;
             paste_config.range = None;
             paste_config.specific = Some(entry.path);
+            paste_config.delete = true;
 
             handle_paste(paste_config, conn).await
         }

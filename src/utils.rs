@@ -146,20 +146,12 @@ pub fn wrap_from_path(root: &Path, path: &Path) -> (String, PathBuf) {
     )
 }
 
-/// Strip weird stuff from a path
-/// like ./ and /
-pub fn check_slash(path: &str) -> String {
-    let mut path = path.to_string();
+/// Parses the file name from a path
+pub fn parse_file_name(path: &str) -> String {
+    let path = Path::new(path);
+    let file_name = path.file_name().unwrap().to_str().unwrap();
 
-    if path.starts_with("./") {
-        path = path.strip_prefix("./").unwrap().to_string();
-    }
-
-    if path.starts_with('/') {
-        path = path.strip_prefix('/').unwrap().to_string();
-    }
-
-    path
+    file_name.to_string()
 }
 
 /// Directly print a cool splash screen
