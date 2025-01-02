@@ -28,7 +28,7 @@ pub struct ConstructedArgs {
     pub files: Option<Vec<String>>,
     pub dir: bool,
     pub strict: bool,
-    pub no_ignore: bool,
+    pub ignore: bool,
     pub all: bool,
     pub overwrite: bool,
     pub delete: bool,
@@ -47,7 +47,7 @@ impl ConstructedArgs {
             strict: arg_or_config(args.strict, config.strict),
             all: arg_or_config(args.all, config.all),
             overwrite: arg_or_config(args.overwrite, config.overwrite),
-            no_ignore: arg_or_config(args.no_ignore, config.no_ignore),
+            ignore: arg_or_config(!args.no_ignore, !config.ignore),
             delete: arg_or_config(args.delete, config.delete),
             range: if args.id.is_some() {
                 Some(args.id.unwrap().to_string())
@@ -79,7 +79,7 @@ pub fn write_file(path: &Path, content: String) -> bool {
 fn default_config() -> Result<String, toml::ser::Error> {
     let config = Config {
         strict: false,
-        no_ignore: false,
+        ignore: true,
         all: false,
         overwrite: false,
         delete: false,
@@ -95,7 +95,7 @@ fn default_config() -> Result<String, toml::ser::Error> {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Config {
     pub strict: bool,
-    pub no_ignore: bool,
+    pub ignore: bool,
     pub all: bool,
     pub overwrite: bool,
     pub delete: bool,

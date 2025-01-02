@@ -63,7 +63,7 @@ pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> (Vec<PathBuf>, f64) {
     let size: Arc<Mutex<u64>> = Arc::new(Mutex::new(0));
 
     WalkBuilder::new(dir_path)
-        .hidden(config.hidden)
+        .hidden(!config.hidden)
         .git_ignore(config.respect_ignore)
         .build_parallel()
         .run(|| {

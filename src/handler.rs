@@ -300,7 +300,7 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
         full_path: false,
         strict: paste_config.strict,
         hidden: paste_config.all,
-        respect_ignore: !paste_config.no_ignore,
+        respect_ignore: paste_config.ignore,
     });
 
     let mut final_files = HashMap::new();
@@ -458,11 +458,11 @@ async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
 
     static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
     LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
-        filter_file: false,
+        filter_file: !paste_config.dir,
         full_path: false,
-        strict: false,
-        hidden: true,
-        respect_ignore: false,
+        strict: paste_config.strict,
+        hidden: paste_config.all,
+        respect_ignore: paste_config.ignore,
     });
 
     // TODO: Better way to handle the calculate size flag
