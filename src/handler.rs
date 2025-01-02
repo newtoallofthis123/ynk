@@ -2,6 +2,7 @@
 //! this is essentially the router of the program
 
 use std::{
+    ffi::OsStr,
     path::PathBuf,
     sync::{Arc, OnceLock},
 };
@@ -210,6 +211,8 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 db::delete_entry(conn, x.to_str().unwrap()).expect("Unable to delete entry");
             });
 
+            // Reid all the remaining files
+            let _ = db::reid(conn).expect("Failed to reid");
             println!("Deleted {} files", to_delete.len().to_string().green());
         }
         Command::Empty => {
@@ -232,8 +235,10 @@ pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Conne
                 }
             }
 
+            // Check Editor Command exists before
             let edited_config = inquire::Editor::new("Edit Config")
                 .with_file_extension("toml")
+                .with_editor_command(OsStr::new("vim"))
                 .with_predefined_text(&toml::to_string(&config).unwrap())
                 .prompt()
                 .unwrap();
@@ -381,6 +386,10 @@ async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection
                     db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
                 }
             });
+            if paste_config.delete {
+                // Reid all the remaining files
+                let _ = db::reid(conn).expect("Failed to reid");
+            }
         }
         Err(e) => {
             println!(

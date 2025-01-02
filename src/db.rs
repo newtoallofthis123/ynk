@@ -7,7 +7,7 @@ use chrono::{DateTime, Local};
 use rusqlite::Connection;
 use sea_query::{ColumnDef, Expr, Iden, Order, Query, SqliteQueryBuilder, Table};
 
-use crate::files::get_path;
+use crate::{files::get_path, utils::sort_entries};
 
 /// The name of the database
 const DB_NAME: &str = "store.db";
@@ -36,8 +36,12 @@ pub struct Entry {
     pub id: i32,
     pub name: String,
     pub path: String,
+    /// Represents if an entry is a dir or not, left for legacy reasons
+    #[allow(dead_code)]
     pub is_dir: bool,
     pub accessed_at: DateTime<Local>,
+    /// The time the entry was created. Currently not in use anywhere.
+    #[allow(dead_code)]
     pub created_at: DateTime<Local>,
 }
 
@@ -154,6 +158,40 @@ pub fn insert_into_db(conn: &Connection, eb: EntryBuilder) -> Result<Entry, rusq
             created_at,
         })
     })
+}
+
+/// Inserts an entry into the database
+///
+/// # Arguments
+///
+/// * `conn` - A reference to the database connection
+/// * `e` - An Entry struct
+///
+/// # Returns
+/// A Result enum with the following variants:
+///
+/// * `Entry` - The entry that was inserted into the database
+/// * `rusqlite::Error` - The error that was encountered while inserting into the database
+pub fn insert_entry(conn: &Connection, e: Entry) -> Result<usize, rusqlite::Error> {
+    let query = Query::insert()
+        .into_table(Store::Table)
+        .columns([
+            Store::Name,
+            Store::Path,
+            Store::IsDir,
+            Store::AccessedAt,
+            Store::CreatedAt,
+        ])
+        .values_panic([
+            e.name.clone().into(),
+            e.path.clone().into(),
+            e.is_dir.into(),
+            e.accessed_at.to_string().into(),
+            e.created_at.to_string().into(),
+        ])
+        .to_string(SqliteQueryBuilder);
+
+    conn.execute(&query, [])
 }
 
 /// Gets all the entries from the database
@@ -353,4 +391,18 @@ pub fn update_accessed_at(conn: &Connection, path: &str) -> Result<usize, rusqli
         .to_string(SqliteQueryBuilder);
 
     conn.execute(&query, [])
+}
+
+pub fn reid(conn: &Connection) -> Result<usize, rusqlite::Error> {
+    let mut entries = get_all(conn)?;
+    sort_entries(&mut entries);
+    entries.reverse();
+
+    delete_all(conn)?;
+
+    for e in entries {
+        insert_entry(conn, e)?;
+    }
+
+    Ok(0)
 }
