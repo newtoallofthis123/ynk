@@ -5,7 +5,6 @@ use colored::Colorize;
 use config::{get_config_from_file, write_default_config, ConstructedArgs};
 use correct_word::{correct_word, Algorithm};
 use files::get_config_path;
-use human_panic::setup_panic;
 use utils::{check_version, print_splash_screen};
 
 mod config;
@@ -16,7 +15,6 @@ mod utils;
 
 #[derive(Parser, Debug, Clone)]
 #[command(name="ynk", author="Ishan Joshi <noobscience@duck.com>", version, about="Copy paste files in the terminal", long_about = None)]
-
 /// The Args struct is used to parse the command line arguments
 /// In order to make the command line arguments more user friendly
 /// the user has the option to not pass in the command name
@@ -138,8 +136,6 @@ const OPTIONS: &[&str] = &[
 
 #[tokio::main]
 async fn main() {
-    setup_panic!();
-
     let args = Args::parse();
 
     if !get_config_path().exists() {
