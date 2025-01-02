@@ -169,7 +169,7 @@ async fn main() {
                     Algorithm::Levenshtein,
                     temp_cmd,
                     OPTIONS.iter().map(|x| x.to_string()).collect(),
-                    Some(5),
+                    Some(0.5),
                 );
                 if let Some(word) = word.word {
                     println!("You seem to have meant {}", word.blue());

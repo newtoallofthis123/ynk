@@ -296,9 +296,9 @@ checksum = "06ea2b9bc92be3c2baa9334a323ebca2d6f074ff852cd1d7b11064035cd3868f"
 
 [[package]]
 name = "correct_word"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69d2e239c61a9fb5c6709f75255449e117cba4a1156cfce804ccda7aadc9d2d1"
+checksum = "c817a483cb1143316474bc197d43e6d4d54a99400111a0170fd4eb9674273717"
 
 [[package]]
 name = "crc32fast"
