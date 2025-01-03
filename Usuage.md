@@ -97,12 +97,12 @@ preserve_structure = false
 
 Each of this means the following:
 
-`strict`: Enables strict mode for pasting operations
-`ignore`: Ignore files and directories mentioned in the `.gitignore` file
-`all`: Include hidden files while pasting
-`overwrite`: Overwrite files and folders while pasting
-`delete`: Delete the entry after pasting the entry
-`prompt`: Prompt the user before critical operations such as clear etc
-`show_splash`: Decides if ynk should disable it's banner. This is disabled automatically in stdout mode.
-`calculate_size`: Calculates the size while listing entries.
-`preserve_structure`: Preserves the structure of the entry while adding
+- `strict`: Enables strict mode for pasting operations
+- `ignore`: Ignore files and directories mentioned in the `.gitignore` file
+- `all`: Include hidden files while pasting
+- `overwrite`: Overwrite files and folders while pasting
+- `delete`: Delete the entry after pasting the entry
+- `prompt`: Prompt the user before critical operations such as clear etc
+- `show_splash`: Decides if ynk should disable it's banner. This is disabled automatically in stdout mode.
+- `calculate_size`: Calculates the size while listing entries.
+- `preserve_structure`: Preserves the structure of the entry while adding
