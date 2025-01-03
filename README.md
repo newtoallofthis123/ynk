@@ -65,6 +65,24 @@ Example for fish:
 ynk completions fish | source
 ```
 
+## Config
+
+Ynk writes the config to the `XDG_CONFIG_HOME/ynk/config.toml`. The default config is as follows:
+
+```bash
+strict = false
+ignore = true
+all = false
+overwrite = false
+delete = false
+prompt = true
+show_splash = true
+calculate_size = true
+preserve_structure = false
+```
+
+For more information refer to the [Config Options](Usuage.md#config-options)
+
 ## Usuage
 
 A shorter version of this can be viewed by using the `ynk --help` command and indivisual commands can be viewed by using `ynk help [COMMAND]`.

@@ -78,3 +78,31 @@ Supported shells are: Fish, Zsh, Bash and Powershell. Look into [Shell Completio
 
 **help [COMMAND]**: Look at this usuage information in the shell.
 
+
+## Config Options
+
+The config file has the following options:
+
+```bash
+strict = false
+ignore = true
+all = false
+overwrite = false
+delete = false
+prompt = true
+show_splash = true
+calculate_size = true
+preserve_structure = false
+```
+
+Each of this means the following:
+
+`strict`: Enables strict mode for pasting operations
+`ignore`: Ignore files and directories mentioned in the `.gitignore` file
+`all`: Include hidden files while pasting
+`overwrite`: Overwrite files and folders while pasting
+`delete`: Delete the entry after pasting the entry
+`prompt`: Prompt the user before critical operations such as clear etc
+`show_splash`: Decides if ynk should disable it's banner. This is disabled automatically in stdout mode.
+`calculate_size`: Calculates the size while listing entries.
+`preserve_structure`: Preserves the structure of the entry while adding
