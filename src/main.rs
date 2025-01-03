@@ -102,7 +102,7 @@ struct Args {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Command {
+pub enum YnkCommand {
     Add,
     Paste,
     Pop,
@@ -114,18 +114,18 @@ pub enum Command {
     Exit,
 }
 
-impl Command {
-    fn from(cmd: &str) -> Command {
+impl YnkCommand {
+    fn from(cmd: &str) -> YnkCommand {
         match cmd {
-            "add" => Command::Add,
-            "paste" => Command::Paste,
-            "pop" => Command::Pop,
-            "config" => Command::Config,
-            "clear" => Command::Clear,
-            "list" => Command::List,
-            "delete" => Command::Delete,
-            "exit" => Command::Exit,
-            _ => Command::Empty,
+            "add" => YnkCommand::Add,
+            "paste" => YnkCommand::Paste,
+            "pop" => YnkCommand::Pop,
+            "config" => YnkCommand::Config,
+            "clear" => YnkCommand::Clear,
+            "list" => YnkCommand::List,
+            "delete" => YnkCommand::Delete,
+            "exit" => YnkCommand::Exit,
+            _ => YnkCommand::Empty,
         }
     }
 }
@@ -150,7 +150,7 @@ async fn main() {
 
     let temp_arg = args.clone();
     let mut cmd = match args.clone().cmd {
-        Some(cmd) => Command::from(&cmd),
+        Some(cmd) => YnkCommand::from(&cmd),
         None => {
             println!("{}", "Interactive Mode".red());
             get_cmd()
@@ -159,10 +159,10 @@ async fn main() {
 
     let mut constructed_args = ConstructedArgs::new(args, config);
 
-    if cmd == Command::Empty {
+    if cmd == YnkCommand::Empty {
         if let Some(temp_cmd) = temp_arg.cmd {
             if PathBuf::from(temp_cmd.clone()).exists() {
-                cmd = Command::Add;
+                cmd = YnkCommand::Add;
                 constructed_args.files = Some(vec![temp_cmd]);
             } else if !temp_cmd.is_empty() {
                 let word = correct_word(
@@ -181,7 +181,7 @@ async fn main() {
                         std::process::exit(0);
                     }
 
-                    cmd = Command::from(&word);
+                    cmd = YnkCommand::from(&word);
                 } else {
                     cmd = get_cmd();
                 }
@@ -208,10 +208,10 @@ async fn main() {
     handler::handler(cmd, constructed_args, &conn).await;
 }
 
-fn get_cmd() -> Command {
+fn get_cmd() -> YnkCommand {
     let choice = inquire::Select::new("Select a Command", OPTIONS.to_vec())
         .prompt()
         .unwrap();
 
-    Command::from(choice)
+    YnkCommand::from(choice)
 }
