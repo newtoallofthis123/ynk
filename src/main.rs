@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, Command};
+use clap::{command, Arg, ArgAction, Command};
 use config::{get_config_from_file, write_default_config, ConstructedArgs};
 use files::get_config_path;
 use utils::{check_version, print_splash_screen};
@@ -11,12 +11,13 @@ mod utils;
 
 #[tokio::main]
 async fn main() {
-    let cmd = Command::new("ynk")
+    let mut cmd = command!()
         .author("NoobScience <noobscience@duck.com>")
         .about("Copy paste files in the terminal")
         .arg(
             Arg::new("noignore")
                 .short('n')
+                .help("Don't respect the .gitignore")
                 .long("noignore")
                 .global(true)
                 .action(ArgAction::SetTrue),
@@ -24,6 +25,7 @@ async fn main() {
         .arg(
             Arg::new("yes")
                 .short('y')
+                .help("Prompt yes to all prompts")
                 .long("yes")
                 .global(true)
                 .action(ArgAction::SetTrue),
@@ -32,6 +34,7 @@ async fn main() {
             Arg::new("all")
                 .short('a')
                 .long("all")
+                .help("Also include hidden files in discovery")
                 .global(true)
                 .action(ArgAction::SetTrue),
         )
@@ -40,9 +43,9 @@ async fn main() {
                 Arg::new("size")
                     .id("size")
                     .long("size")
-                    .help("Show the size as well")
+                    .help("Calculate and show the size column")
                     .action(ArgAction::SetTrue),
-            ),
+            ).long_about("List the entires in the store"),
         )
         .subcommand(
             Command::new("add")
@@ -60,13 +63,13 @@ async fn main() {
                 )
                 .arg(
                     Arg::new("files")
-                        .help("The list of files")
+                        .help("The list of files to add")
                         .num_args(1..)
                         .value_name("FILES"),
-                ),
+                ).long_about("Add entries to the store"),
         )
         .subcommand(
-            Command::new("delete").arg(
+            Command::new("delete").long_about("Delete entries from the ynk store").arg(
                 Arg::new("files")
                     .help("The list of files")
                     .num_args(1..)
@@ -75,29 +78,34 @@ async fn main() {
         )
         .subcommand(
             Command::new("pop")
+                .long_about("Pop the last entry in the ynk store")
                 .arg(
                     Arg::new("overwrite")
                         .long("overwrite")
+                        .help("Overwrite existing files")
                         .action(ArgAction::SetTrue),
                 )
-                .arg(Arg::new("strict").long("strict").action(ArgAction::SetTrue)),
+                .arg(Arg::new("strict").help("Error on any IO error").long("strict").action(ArgAction::SetTrue)),
         )
-        .subcommand(Command::new("clear"))
+        .subcommand(Command::new("clear").long_about("Clear all entries from the ynk store"))
         .subcommand(
             Command::new("paste")
+                .long_about("Paste entries from the ynk store")
                 .arg(
                     Arg::new("overwrite")
                         .long("overwrite")
+                        .help("Overwrite existing files")
                         .action(ArgAction::SetTrue),
                 )
-                .arg(Arg::new("strict").long("strict").action(ArgAction::SetTrue))
+                .arg(Arg::new("strict").help("Error on any IO error").long("strict").action(ArgAction::SetTrue))
                 .arg(
                     Arg::new("delete")
                         .long("delete")
+                        .help("Delete the entry from the store after pasting")
                         .short('d')
                         .action(ArgAction::SetTrue),
                 )
-                .arg(Arg::new("range").long("range").short('r').num_args(1)),
+                .arg(Arg::new("range").long("range").help("Specify the range of entries to paste: Works using the syntax of n..[m]").short('r').num_args(1)),
         );
 
     let matches = cmd.clone().get_matches();
@@ -194,6 +202,8 @@ async fn main() {
             handler::handle_delete(args, &conn).await;
         }
         Some(_) => {}
-        None => todo!(),
+        None => {
+            let _ = cmd.print_help();
+        },
     }
 }
