@@ -139,7 +139,7 @@ async fn main() {
 
     let config = get_config_from_file();
 
-    if config.show_splash {
+    if config.show_splash && atty::is(atty::Stream::Stdout) {
         print_splash_screen();
     }
 

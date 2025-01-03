@@ -12,6 +12,7 @@ repository = "https://github.com/newtoallofthis123/ynk"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+atty = "0.2.14"
 chrono = "0.4.31"
 clap = { version = "4.4.16", features = ["derive", "cargo"] }
 clap_complete = "4.5.40"
