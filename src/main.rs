@@ -70,10 +70,10 @@ async fn main() {
         )
         .subcommand(
             Command::new("delete").long_about("Delete entries from the ynk store").arg(
-                Arg::new("files")
-                    .help("The list of files")
+                Arg::new("queries")
+                    .help("The queries to file the entries")
                     .num_args(1..)
-                    .value_name("FILES"),
+                    .value_name("QUERIES"),
             ),
         )
         .subcommand(
@@ -84,6 +84,13 @@ async fn main() {
                         .long("overwrite")
                         .help("Overwrite existing files")
                         .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("output")
+                        .long("output")
+                        .short('o')
+                        .help("The output dir or file")
+                        .num_args(1)
                 )
                 .arg(Arg::new("strict").help("Error on any IO error").long("strict").action(ArgAction::SetTrue)),
         )
@@ -192,7 +199,11 @@ async fn main() {
             if m.get_flag("strict") {
                 args.strict = true;
             }
-            handler::handle_pop(args, &conn).await;
+            let mut output = None;
+            if let Some(out) = m.get_one::<String>("output") {
+                output = Some(out.clone());
+            }
+            handler::handle_pop(args, &conn, output).await;
         }
         Some("clear") => {
             handler::handle_clear(args, &conn).await;
@@ -232,7 +243,7 @@ async fn main() {
         }
         Some("delete") => {
             let m = matches.subcommand_matches("delete").unwrap();
-            if let Some(files) = m.get_many::<String>("files") {
+            if let Some(files) = m.get_many::<String>("queries") {
                 args.files = Some(files.map(|s| s.to_string()).collect::<Vec<String>>());
             }
 

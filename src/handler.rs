@@ -40,26 +40,11 @@ pub async fn handle_delete(args: ConstructedArgs, conn: &rusqlite::Connection) {
 
     let mut to_delete = Vec::new();
 
-    if let Some(indexes) = args.files {
-        to_delete = indexes
+    if let Some(queries) = args.files {
+        to_delete = deep_search(queries, &entries)
             .iter()
-            .map(|x| {
-                let index = x.parse::<i32>();
-                if let Ok(idx) = index {
-                    if let Some(entry) = entries.iter().find(|x| x.id == idx) {
-                        PathBuf::from(entry.path.clone())
-                    } else {
-                        println!("{}", "Invalid index".red());
-                        std::process::exit(1);
-                    }
-                } else if let Some(entry) = choices.get(x) {
-                    entry.clone()
-                } else {
-                    println!("{}", "Invalid index".red());
-                    std::process::exit(1);
-                }
-            })
-            .collect::<Vec<_>>();
+            .map(|e| PathBuf::from(e.path.clone()))
+            .collect();
     } else {
         handle_list(args, conn).await;
         println!(
@@ -116,7 +101,11 @@ pub async fn handle_clear(args: ConstructedArgs, conn: &rusqlite::Connection) {
     println!("Emptied the store");
 }
 
-pub async fn handle_pop(args: ConstructedArgs, conn: &rusqlite::Connection) {
+pub async fn handle_pop(
+    args: ConstructedArgs,
+    conn: &rusqlite::Connection,
+    output: Option<String>,
+) {
     let entry = match db::pop_one(conn) {
         Ok(entry) => entry,
         Err(e) => {
@@ -130,7 +119,7 @@ pub async fn handle_pop(args: ConstructedArgs, conn: &rusqlite::Connection) {
     paste_config.specific = Some(entry.path);
     paste_config.delete = true;
 
-    handle_paste(paste_config, conn, None).await
+    handle_paste(paste_config, conn, output).await
 }
 
 pub async fn handle_add(args: ConstructedArgs, conn: &rusqlite::Connection) {
