@@ -1,21 +1,20 @@
 # Y(a)NK
 
 Yank is the superior way to copy and paste files and large directories in the command line.
+
 It allows you to have a workflow similar to copy and pasting muliple files and folders in GUI file managers in the terminal.
 It does this by maintaining a persistant store that records file metadata when you add to it to create entries.
 These entries can then be pasted at will using [queries](#queries), [ranges](#ranges) or just file names.
-This means you can essentially yank different dirs and files and paste them all together, as well as have a pesistant record of 
-any file on your system.
 
 Moreover, ynk has the ability to exclude [hidden files](#hiddenfiles) and also respect the [.gitignore](#gitignore) file.
 This combined with ynk's use of several parallel threads for the paste operation makes it ideal for pasting multiple large directories
 together.
 
 Not to mention ynk is *BLAZINGLY FAST*, like pasting 30,000 files in 1.4 seconds fast.
+
 ![Pasting Files](./assets/paste.png)
 
-A video is worth a thousand pictures and about 10^6 words so,
-Watch the video below for more details:
+A video is worth a thousand pictures and about 10^6 words so, click on the screenshot above to watch the video for more details.
 
 ## Installing
 
