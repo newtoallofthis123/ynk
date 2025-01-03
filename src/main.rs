@@ -106,10 +106,17 @@ async fn main() {
                         .action(ArgAction::SetTrue),
                 )
                 .arg(
-                    Arg::new("files")
-                        .help("The list of files to add")
+                    Arg::new("output")
+                        .long("output")
+                        .short('o')
+                        .help("The output dir or file")
+                        .num_args(1)
+                )
+                .arg(
+                    Arg::new("queries")
+                        .help("Queries to filter the entires")
                         .num_args(1..)
-                        .value_name("FILES")
+                        .value_name("QUERIES")
                 )
                 .arg(
                     Arg::new("range").long("range").help("Specify the range of entries to paste: Works using the syntax of n..[m]").short('r').num_args(1)
@@ -205,13 +212,16 @@ async fn main() {
             if let Some(range) = m.get_one::<String>("range") {
                 args.range = Some(range.clone());
             }
-            if let Some(files) = m.get_many::<String>("files") {
+            if let Some(files) = m.get_many::<String>("queries") {
                 args.files = Some(files.map(|s| s.to_string()).collect::<Vec<String>>());
+            }
+            let mut output = None;
+            if let Some(out) = m.get_one::<String>("output") {
+                output = Some(out.clone());
             }
             args.specific = None;
 
-            //TODO: Handle files as search queries
-            handler::handle_paste(args, &conn).await;
+            handler::handle_paste(args, &conn, output).await;
         }
         Some("completions") => {
             let m = matches.subcommand_matches("completions").unwrap();

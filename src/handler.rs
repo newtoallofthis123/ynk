@@ -19,7 +19,7 @@ use tokio::{sync::Mutex, task};
 
 use crate::{
     db,
-    utils::{self, does_file_exist, list_dir, sort_entries, ListDirConfig},
+    utils::{self, deep_search, does_file_exist, list_dir, sort_entries, ListDirConfig},
     ConstructedArgs,
 };
 
@@ -130,7 +130,7 @@ pub async fn handle_pop(args: ConstructedArgs, conn: &rusqlite::Connection) {
     paste_config.specific = Some(entry.path);
     paste_config.delete = true;
 
-    handle_paste(paste_config, conn).await
+    handle_paste(paste_config, conn, None).await
 }
 
 pub async fn handle_add(args: ConstructedArgs, conn: &rusqlite::Connection) {
@@ -204,9 +204,14 @@ fn parse_range(range: String, s_files: &[db::Entry]) -> Vec<(String, PathBuf)> {
     files
 }
 
-pub async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection) {
+pub async fn handle_paste(
+    paste_config: ConstructedArgs,
+    conn: &rusqlite::Connection,
+    output: Option<String>,
+) {
     let s_files = db::get_all(conn).expect("Could not get entries from database");
-
+    let queries = paste_config.files.unwrap_or_default();
+    let s_files = deep_search(queries, &s_files);
     let range = paste_config.range.clone();
     let files = if let Some(range) = range {
         parse_range(range, &s_files)
@@ -220,12 +225,7 @@ pub async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connec
         s_files.iter().map(utils::wrap_from_entry).collect()
     };
 
-    let user_target = paste_config
-        .files
-        .unwrap_or_else(|| vec![".".to_string()])
-        .first()
-        .unwrap()
-        .clone();
+    let user_target = output.unwrap_or_else(|| ".".to_string()).clone();
 
     static LIST_DIR_CONFIG: OnceLock<ListDirConfig> = OnceLock::new();
     LIST_DIR_CONFIG.get_or_init(|| ListDirConfig {
@@ -377,6 +377,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
     #[derive(Tabled)]
     struct DisplayFiles {
         id: usize,
+        name: String,
         path: String,
         count: usize,
         size: String,
@@ -386,6 +387,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
     #[derive(Tabled)]
     struct PartialDisplayFiles {
         id: usize,
+        name: String,
         path: String,
         last_accessed: String,
     }
@@ -425,6 +427,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
 
             display_contents.push(DisplayFiles {
                 id: x.id as usize,
+                name: x.name.clone(),
                 path: x.path.clone(),
                 count: file_count,
                 size: utils::convert_size(size),
@@ -442,6 +445,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
         entries.iter().for_each(|x| {
             display_contents.push(PartialDisplayFiles {
                 id: x.id as usize,
+                name: x.name.clone(),
                 path: x.path.clone(),
                 last_accessed: x.accessed_at.to_rfc2822(),
             });

@@ -31,7 +31,7 @@ enum Store {
 
 /// Represents a Database Entry
 /// It directly reflects the database
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Entry {
     pub id: i32,
     pub name: String,
