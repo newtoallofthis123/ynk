@@ -1,115 +1,139 @@
 # Y(a)NK
 
-Y(a)nk is a simple command line tool that implements a very basic feature in the terminal that I always wanted to have. It allows you to essentially copy and paste files from one directory to another without having to type out the full path. It's a very simple tool that I made for myself, but I thought it might be useful for others as well.
+Yank is the superior way to copy and paste files and large directories in the command line.
 
-So essentially, you can go into a directory, like you would do with a GUI, and copy a file or directory. Then you can go to another directory and paste it. It's that simple.
+It allows you to have a workflow similar to copy and pasting muliple files and folders in GUI file managers in the terminal.
+It does this by maintaining a persistant store that records file metadata when you add to it to create entries.
+These entries can then be pasted at will using [queries](#queries), [ranges](#ranges) or just file names.
 
-No `cp` or `mv` needed. Just `yank` and `paste`.
+Moreover, ynk has the ability to exclude [hidden files](#hiddenfiles) and also respect the [.gitignore](#gitignore) file.
+This combined with ynk's use of several parallel threads for the paste operation makes it ideal for pasting multiple large directories
+together.
 
-## Installation
+Not to mention ynk is *BLAZINGLY FAST*, like pasting 30,000 files in 1.4 seconds fast.
 
-### Unix
+![Pasting Files](./assets/paste.png)
 
-If you are on a unix platform like Linux or Macos, ynk has first class and tested support for it. The best way to install it is to use cargo. If you don't have cargo installed, you can install it from [here](https://rustup.rs/).
+A video is worth a thousand pictures and about 10^6 words so, click on the screenshot above to watch the video for more details.
 
-Once you have cargo installed, you can install ynk by running the following command:
+## Installing
 
-```bash
-cargo install ynk
-```
+Ynk is written in rust and is fully portable across Windows, MacOs and Linux.
+However, ynk is only tested on Linux.
+Moreover ynk comes prebuilt with libsqlite which is the database used for the store.
 
-### Windows
+### Using Rust: Recommended
 
-The best way to install ynk on Windows is to use cargo.
-
-```bash
-cargo install ynk
-```
-
-Moreover, I cannot test it on Windows, so if you find any bugs, please open an issue.
-
-## Usage
-
-### Copying
-
-To copy a file or directory, you can use the `add` command. It takes a single argument which is the path to the file(s) or directory(s) that you want to copy.
+The minimium version of rust you would need for this is `v.1.71`.
+Ynk is listed on cargo and you can install it on your system by the following command:
 
 ```bash
-yank add README.md
+cargo install ynk --locked
 ```
 
-For this you need not provide any arguments. This is because this inherently doesn't do any sort of IO operations. It just stores the path of the file or directory in a database. So it's very fast.
+This installs ynk prebuilt with libsqlite to the system.
 
-It checks the integrity of the path, converts it into a suitable format, and then stores it in the database. If the path is invalid, it will throw an error.
+### Using Git
 
-### Pasting
-
-Pasting is also quite simple. Just use the `paste` command. Here is where you get to essentially tweak what you want to copy over. You can do this with the following options
-
-> **WARNING**: Paste will paste all the files and directories in the store. If you want to specify a specific entry, use `ynk list`, get the index of the entry, and then use `ynk paste -r <index>`, or just use `ynk pop`.
+You can also build ynk yourself on your machine.
+To do this you can use the following commands:
 
 ```bash
-ynk paste [-n|--no-ignore] [--hidden] [-s|--strict] [-f|--force] [--dry-run] [-r|--range <start..end>] [--id <id1,id2>] [-d|--delete] FOLDER_NAME
+git clone https://github.com/newtoallofthis123/ynk
+cd ynk
+cargo install --path .
 ```
 
-Before passing in the options, know that the `paste` command is highly optimized for IO tasks. All the way from reading the directory structure (walking the directory tree) to reading and writing files. It uses a lot of threads to do this. So it's very fast.
+This installs ynk using rust. 
 
-Moreover, it also by default respects your `.gitignore` file and doesn't copy over an hidden files or directories. To learn how to tweak this, read the options below.
+### Binaries coming soon!
 
-- `-n` or `--no-ignore`: This will make it ignore the `.gitignore` file and copy over all files and directories.
-- `-a` or `--all`: This will make it copy over all the files and directories, including hidden files and directories.
-- `-s` or `--strict`: This will make sure that any and all IO errors are reported. By default, it will ignore any IO errors and continue with the operation.
-- `-f` or `--force`: **TODO** For now, this does nothing. But in the future, this will make it overwrite any files or directories that already exist.
-- `--dry-run`: This will make it not actually copy over any files or directories. It will just print out what it would have done.
-- `-r` or `--range`: This will make it paste only a range of files and directories. This is useful when you want to paste only a few files and directories from a large list. You can specify the range in the following format: `start:end`.
-It is not the smartest yet, so make sure that you specify the range correctly. It will throw an error if the range is invalid.
-- `-d` or `--delete`: This will make it delete the files and directories from stored in the database after pasting them. Not from the disk.
-- `--preserve`: This will preserve the natural path of the filename and use, it as is. For example, if you use
-ynk add ../README.md --preserve, when you paste it, it will actually `../` to the path and paste it in the parent directory.
-- `--size`: This will print out the size of the files and directories that are being listed, can be only used with list command.
-- `--id`: This will paste only the files with the specified id's. Overrides the range option.
+## Shell Completions
 
-### Popping
-
-This is the most common use case.
-You can pop the last file or directory that you copied. This will remove it from the database and paste all the files and directories in the current directory.
-The same options as the `paste` command, except the `--range` option, are available for the `pop` command.
+Ynk supports shell completions for bash, zsh, fish and powershell.
+You can generate the respective completion files using the `ynk completions SHELL` command.
+This can be them redirected to the `source` command.
 
 ```bash
-yank pop [-n|--no-ignore] [--hidden] [-s|--strict] [-f|--force] [--dry-run] [-d|--delete] FOLDER_NAME
+ynk completions SHELL | source
 ```
 
-### Listing
-
-You can list all the files and directories indexed by ynk in the database.
+Example for fish:
 
 ```bash
-yank list
+# In your fish config file
+ynk completions fish | source
 ```
 
-### Deleting
+## Config
 
-You can delete a file or directory from the database.
+Ynk writes the config to the `XDG_CONFIG_HOME/ynk/config.toml`. The default config is as follows:
 
 ```bash
-yank delete README.md
+strict = false
+ignore = true
+all = false
+overwrite = false
+delete = false
+prompt = true
+show_splash = true
+calculate_size = true
+preserve_structure = false
 ```
 
-## So it's just a glorified `cp`?
+For more information refer to the [Config Options](Usuage.md#config-options)
 
-Well, yes and no. For now, it only has a database that sort of abstracts a name and full path. So you can do something like this:
+## Usuage
+
+A shorter version of this can be viewed by using the `ynk --help` command and indivisual commands can be viewed by using `ynk help [COMMAND]`.
+
+Primarily, ynk can be thought of as a clipboard that stores file metadata to later paste.
+
+This means that unless you use either the `paste` or the `pop` option, no change whatsoever is made to the file system. Moreover, ynk does not ever modify the original file. It merely copies it.
+
+The store files metadata in a format similar to below
+
+| id  | name      | path                 | accessed_at         |
+| --- | --------- | -------------------- | ------------------- |
+| 1   | README.md | /home/user/README.md | 2020-01-01 00:00:00 |
+| 2   | portfolio | /home/user/portfolio | 2020-03-01 00:00:00 |
+
+A mini version of this is as below:
 
 ```bash
-yank add README.md
+Copy paste files in the terminal
+
+Usage: ynk [OPTIONS] [COMMAND]
+
+Commands:
+  list         List the entires in the store
+  add          Add entries to the store
+  delete       Delete entries from the ynk store
+  pop          Pop the last entry in the ynk store
+  clear        Clear all entries from the ynk store
+  paste        Paste entries from the ynk store
+  completions  Generate and write completions
+  help         Print this message or the help of the given subcommand(s)
+
+Options:
+  -n, --noignore  Don't respect the .gitignore
+  -y, --yes       Prompt yes to all prompts
+  -a, --all       Also include hidden files in discovery
+  -h, --help      Print help
+  -V, --version   Print version
 ```
 
-This would store something like this in the database:
+For more information on each command and their respective flag, refer [Usuage](Usuage.md)
 
-| id | name     | path       | created_at |
-|----|----------|------------|------------|
-| 1  | README.md| /home/user/README.md | 2020-01-01 00:00:00 |
+## How it works
 
-So, when you paste, it would basically just read the entire file, store it in temporary memory, and then write it to the current directory. So it's not really a `cp` or `mv` because it doesn't actually move the file. It just reads and writes it.
+When you `add` an entry to ynk, it stores it's metadata, absolute path in `~/.ynk/store.db`.
+This is a sqlite3 database that ynk then uses to query information from.
+When you `paste` or `pop`, ynk merely reads the file metadata from the store and uses an optimized
+directory walking algorithm to discover files and uses multiple `tokio` threads for the copy and pasting operation.
+This makes ynk very fast. Moreover, it also shows you a clean progress bar while it is actually copy pasting the files and folders. 
+
+> 29,000 files in about 1.5 seconds.
 
 ## Stuff Ynk can do that `cp` can't
 
@@ -132,30 +156,6 @@ The Reading and writing of the files is done in chunks powered by `tokio`'s fs m
 
 The file tree is walked using `walkdir`, while making sure that it respects the `.gitignore` file. All of this is done parallely in a thread pool with a in memory static cache.
 
-## What DB do I need to install?
-
-You need not install any database.
-
-The database is a simple SQLite3 database, the drivers for which are embedded in the binary. So you don't need to install anything else. This keeps the binary a single file, and makes it easy to install and use.
-
-The db functionality is all abstracted away in a separate module, so it's easy to swap out the database if needed.
-
-## TODO
-
-- [x] Add a `--force` option to overwrite files and directories.
-- [x] Add a `--target` option to paste files and directories in a specific directory. (release 0.1.2)
-- [x] Add config file support.
-- [x] Add permanent storage option.
-- [ ] More explicit error handling.
-
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-ynk is an open source project and contributions are welcome. You can contribute in many ways like filing issues, fixing bugs, suggesting features, etc. You can read the contributing guidelines [here](CONTRIBUTING.md).
-
-I am quite new to Rust, so if you find any bugs or have any suggestions, please open an issue. I would love to hear your feedback.
-
-Thanks for trying out ynk!
+Ynk is licensed under the [MIT LICENSE](LICENSE).

@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use crate::{files::get_config_path, Args};
+use crate::files::get_config_path;
 
 /// ConstructedArgs struct
 /// which is used to emulate or mimic
@@ -40,33 +40,21 @@ pub struct ConstructedArgs {
 }
 
 impl ConstructedArgs {
-    pub fn new(args: Args, config: Config) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
-            files: args.files,
-            dir: args.dir,
-            strict: arg_or_config(args.strict, config.strict),
-            all: arg_or_config(args.all, config.all),
-            overwrite: arg_or_config(args.overwrite, config.overwrite),
-            ignore: arg_or_config(!args.no_ignore, !config.ignore),
-            delete: arg_or_config(args.delete, config.delete),
-            range: if args.id.is_some() {
-                Some(args.id.unwrap().to_string())
-            } else {
-                args.range
-            },
-            calculate_size: arg_or_config(args.size, config.calculate_size),
+            files: None,
+            dir: false,
+            strict: config.strict,
+            all: config.all,
+            overwrite: config.overwrite,
+            ignore: config.ignore,
+            delete: config.delete,
+            range: None,
+            calculate_size: config.calculate_size,
             specific: None,
-            yes: arg_or_config(args.yes, config.prompt),
-            preserve_structure: arg_or_config(args.preserve_structure, config.preserve_structure),
+            yes: config.prompt,
+            preserve_structure: config.preserve_structure,
         }
-    }
-}
-
-pub fn arg_or_config(to_check: bool, replace: bool) -> bool {
-    if !to_check {
-        replace
-    } else {
-        to_check
     }
 }
 

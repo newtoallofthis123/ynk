@@ -7,7 +7,8 @@ use std::{
 };
 
 use colored::Colorize;
-use hashbrown::HashMap;
+use correct_word::levenshtein::levenshtein_distance;
+use hashbrown::{HashMap, HashSet};
 use ignore::{WalkBuilder, WalkState};
 use path_abs::PathInfo;
 use update_informer::{registry, Check};
@@ -176,7 +177,8 @@ pub fn check_version() {
 
     let informer = update_informer::new(registry::Crates, pkg_name, current_version);
     if let Some(version) = informer.check_version().unwrap() {
-        println!("A new version of ynk is available:: {}",
+        println!(
+            "A new version of ynk is available:: {}",
             version.to_string().yellow()
         );
     }
@@ -206,4 +208,44 @@ pub fn convert_size(num: f64) -> String {
 
 pub fn sort_entries(entries: &mut [Entry]) {
     entries.sort_by(|a, b| b.id.cmp(&a.id));
+}
+
+pub fn deep_search(queries: Vec<String>, entries: &[Entry]) -> Vec<Entry> {
+    let mut res = HashSet::new();
+
+    if queries.is_empty() {
+        return entries.to_vec();
+    }
+
+    for query in queries {
+        let mut query = query;
+        if PathBuf::from(query.clone()).exists() {
+            query = PathBuf::from(query.clone())
+                .canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+        }
+        entries.iter().for_each(|e| {
+            let leven_dis = levenshtein_distance(query.to_string(), e.name.clone());
+            let dis = 1.0 - (leven_dis as f64 / std::cmp::max(query.len(), e.name.len()) as f64);
+            if let Ok(id) = query.parse::<i32>() {
+                res.insert(id);
+            }
+            if query == e.name
+                || query == e.path
+                || e.name.starts_with(&query)
+                || e.path.starts_with(&query)
+                || dis >= 0.5
+            {
+                res.insert(e.id);
+            }
+        });
+    }
+
+    entries
+        .iter()
+        .filter(|y| res.contains(&y.id))
+        .cloned()
+        .collect()
 }
