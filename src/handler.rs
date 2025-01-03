@@ -2,7 +2,6 @@
 //! this is essentially the router of the program
 
 use std::{
-    ffi::OsStr,
     path::PathBuf,
     sync::{Arc, OnceLock},
 };
@@ -17,238 +16,166 @@ use tabled::{
 use tokio::{sync::Mutex, task};
 
 use crate::{
-    config::{get_config_from_file, write_file},
-    db, files,
+    db,
     utils::{self, does_file_exist, list_dir, sort_entries, ListDirConfig},
-    Command, ConstructedArgs,
+    ConstructedArgs,
 };
 
-/// The main handler function that handles all the commands
-/// and the arguments
-///
-/// It sort of acts like a router
-/// sending the commands to their respective handlers
-///
-/// # Arguments
-///
-/// * `cmd` - The command to be handled
-/// * `args` - The arguments to be handled
-/// * `conn` - The database connection
-///
-/// # Note
-///
-/// This function is async because the paste command is async.
-///
-/// # Panics
-///
-/// This function panics if the database connection is not valid
-/// and also if at any point, an error occurs while handling the
-/// paste command
-pub async fn handler(cmd: Command, args: ConstructedArgs, conn: &rusqlite::Connection) {
-    match cmd {
-        Command::Add => {
-            let mut files: HashMap<String, PathBuf> = HashMap::new();
-            let req = args.files.unwrap_or_else(|| {
-                println!("{}", "No files or directories specified".yellow());
-                println!("Copying the current directory");
+pub async fn handle_delete(args: ConstructedArgs, conn: &rusqlite::Connection) {
+    let mut entries = db::get_all(conn).expect("Could not get entries from database");
 
-                if args.yes {
-                    let choice = inquire::Confirm::new("Do you want to continue?")
-                        .with_default(true)
-                        .prompt()
-                        .unwrap();
+    sort_entries(&mut entries);
 
-                    if !choice {
-                        std::process::exit(0);
-                    }
-                }
+    if entries.is_empty() {
+        println!("No entries in the store");
+        std::process::exit(1);
+    }
 
-                vec![".".to_string()]
-            });
-            req.iter().for_each(|x| {
-                if !does_file_exist(x) {
-                    println!(
-                        "{} \"{}\" {}",
-                        "File or directory with path".red(),
-                        x.red(),
-                        "does not exist.".red(),
-                    );
-                    std::process::exit(1);
-                }
+    let choices = entries
+        .iter()
+        .map(utils::wrap_from_entry)
+        .collect::<HashMap<_, _>>();
 
-                let path = if args.preserve_structure {
-                    x.clone()
-                } else {
-                    utils::parse_file_name(x)
-                };
+    let mut to_delete = Vec::new();
 
-                files.insert(path, PathBuf::from(x).canonicalize().unwrap());
-            });
-
-            let entries = utils::construct_entry_builders(&files)
-                .iter()
-                .map(|x| {
-                    db::insert_into_db(conn, x.to_owned()).expect("Could not insert into database")
-                })
-                .collect::<Vec<_>>();
-
-            println!("Copied {} files", entries.len());
-        }
-        Command::Paste => {
-            let mut paste_config = args;
-            paste_config.specific = None;
-
-            handle_paste(paste_config, conn).await;
-        }
-        Command::Pop => {
-            let entry = match db::pop_one(conn) {
-                Ok(entry) => entry,
-                Err(e) => {
-                    println!("Could not pop entry from database: {:?}", e);
-                    std::process::exit(1);
-                }
-            };
-
-            let mut paste_config = args;
-            paste_config.range = None;
-            paste_config.specific = Some(entry.path);
-            paste_config.delete = true;
-
-            handle_paste(paste_config, conn).await
-        }
-        Command::List => {
-            handle_list(args, conn).await;
-        }
-        Command::Exit => {
-            println!("Bye!");
-            std::process::exit(0);
-        }
-        Command::Clear => {
-            if args.yes {
-                let choice =
-                    inquire::Confirm::new("Are you sure you want to clear all the copied files?")
-                        .with_default(false)
-                        .prompt()
-                        .unwrap();
-
-                if !choice {
-                    println!("Ok! Quitting");
-                }
-            }
-
-            db::delete_all(conn).expect("Unable to delete the indexes");
-            println!("Emptied the store");
-        }
-        Command::Delete => {
-            let mut entries = db::get_all(conn).expect("Could not get entries from database");
-
-            sort_entries(&mut entries);
-
-            if entries.is_empty() {
-                println!("No entries in the store");
-                std::process::exit(1);
-            }
-
-            let choices = entries
-                .iter()
-                .map(utils::wrap_from_entry)
-                .collect::<HashMap<_, _>>();
-
-            let mut to_delete = Vec::new();
-
-            if let Some(indexes) = args.files {
-                to_delete = indexes
-                    .iter()
-                    .map(|x| {
-                        let index = x.parse::<i32>();
-                        if let Ok(idx) = index {
-                            if let Some(entry) = entries.iter().find(|x| x.id == idx) {
-                                PathBuf::from(entry.path.clone())
-                            } else {
-                                println!("{}", "Invalid index".red());
-                                std::process::exit(1);
-                            }
-                        } else if let Some(entry) = choices.get(x) {
-                            entry.clone()
-                        } else {
-                            println!("{}", "Invalid index".red());
-                            std::process::exit(1);
-                        }
-                    })
-                    .collect::<Vec<_>>();
-            } else {
-                handle_list(args, conn).await;
-                println!(
-                    "{}",
-                    "Enter the id of the files to delete seperate by a space".yellow()
-                );
-                let indexes = inquire::Text::new("Enter the indexes or the names")
-                    .with_placeholder("Ex: 1 README.md 4")
-                    .prompt()
-                    .unwrap();
-
-                let indexes = indexes.split_whitespace().collect::<Vec<&str>>();
-                indexes.iter().for_each(|x| {
-                    let index = x.parse::<i32>();
-                    if let Ok(idx) = index {
-                        let e = entries.iter().find(|x| x.id == idx);
-                        if let Some(entry) = e {
-                            to_delete.push(PathBuf::from(entry.path.clone()));
-                        } else {
-                            println!("{}", "Invalid index".red());
-                            std::process::exit(1);
-                        }
-                    } else if let Some(entry) = choices.get(*x) {
-                        to_delete.push(entry.clone());
+    if let Some(indexes) = args.files {
+        to_delete = indexes
+            .iter()
+            .map(|x| {
+                let index = x.parse::<i32>();
+                if let Ok(idx) = index {
+                    if let Some(entry) = entries.iter().find(|x| x.id == idx) {
+                        PathBuf::from(entry.path.clone())
                     } else {
                         println!("{}", "Invalid index".red());
                         std::process::exit(1);
                     }
-                });
-            }
-
-            to_delete.iter().for_each(|x| {
-                db::delete_entry(conn, x.to_str().unwrap()).expect("Unable to delete entry");
-            });
-
-            // Reid all the remaining files
-            let _ = db::reid(conn).expect("Failed to reid");
-            println!("Deleted {} files", to_delete.len().to_string().green());
-        }
-        Command::Empty => {
-            println!("Invalid Command");
-        }
-        Command::Config => {
-            println!("Current Config");
-            let config = get_config_from_file();
-            println!("{:#?}", config);
-
-            if args.yes {
-                let choice = inquire::Confirm::new("Do you want to change the config?")
-                    .with_default(false)
-                    .prompt()
-                    .unwrap();
-
-                if !choice {
-                    println!("Ok! Quitting");
-                    std::process::exit(0);
+                } else if let Some(entry) = choices.get(x) {
+                    entry.clone()
+                } else {
+                    println!("{}", "Invalid index".red());
+                    std::process::exit(1);
                 }
-            }
+            })
+            .collect::<Vec<_>>();
+    } else {
+        handle_list(args, conn).await;
+        println!(
+            "{}",
+            "Enter the id of the files to delete seperate by a space".yellow()
+        );
+        let indexes = inquire::Text::new("Enter the indexes or the names")
+            .with_placeholder("Ex: 1 README.md 4")
+            .prompt()
+            .unwrap();
 
-            // Check Editor Command exists before
-            let edited_config = inquire::Editor::new("Edit Config")
-                .with_file_extension("toml")
-                .with_editor_command(OsStr::new("vim"))
-                .with_predefined_text(&toml::to_string(&config).unwrap())
+        let indexes = indexes.split_whitespace().collect::<Vec<&str>>();
+        indexes.iter().for_each(|x| {
+            let index = x.parse::<i32>();
+            if let Ok(idx) = index {
+                let e = entries.iter().find(|x| x.id == idx);
+                if let Some(entry) = e {
+                    to_delete.push(PathBuf::from(entry.path.clone()));
+                } else {
+                    println!("{}", "Invalid index".red());
+                    std::process::exit(1);
+                }
+            } else if let Some(entry) = choices.get(*x) {
+                to_delete.push(entry.clone());
+            } else {
+                println!("{}", "Invalid index".red());
+                std::process::exit(1);
+            }
+        });
+    }
+
+    to_delete.iter().for_each(|x| {
+        db::delete_entry(conn, x.to_str().unwrap()).expect("Unable to delete entry");
+    });
+
+    // Reid all the remaining files
+    let _ = db::reid(conn).expect("Failed to reid");
+    println!("Deleted {} files", to_delete.len().to_string().green());
+}
+
+pub async fn handle_clear(args: ConstructedArgs, conn: &rusqlite::Connection) {
+    if args.yes {
+        let choice = inquire::Confirm::new("Are you sure you want to clear all the copied files?")
+            .with_default(false)
+            .prompt()
+            .unwrap();
+
+        if !choice {
+            println!("Ok! Quitting");
+        }
+    }
+
+    db::delete_all(conn).expect("Unable to delete the indexes");
+    println!("Emptied the store");
+}
+
+pub async fn handle_pop(args: ConstructedArgs, conn: &rusqlite::Connection) {
+    let entry = match db::pop_one(conn) {
+        Ok(entry) => entry,
+        Err(e) => {
+            println!("Could not pop entry from database: {:?}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let mut paste_config = args;
+    paste_config.range = None;
+    paste_config.specific = Some(entry.path);
+    paste_config.delete = true;
+
+    handle_paste(paste_config, conn).await
+}
+
+pub async fn handle_add(args: ConstructedArgs, conn: &rusqlite::Connection) {
+    let mut files: HashMap<String, PathBuf> = HashMap::new();
+    let req = args.files.unwrap_or_else(|| {
+        println!("{}", "No files or directories specified".yellow());
+        println!("Copying the current directory");
+
+        if args.yes {
+            let choice = inquire::Confirm::new("Do you want to continue?")
+                .with_default(true)
                 .prompt()
                 .unwrap();
 
-            write_file(&files::get_config_path(), edited_config);
-
-            println!("{}", "Config saved!".green());
-            println!("Run ynk config to see the changes");
+            if !choice {
+                std::process::exit(0);
+            }
         }
-    };
+
+        vec![".".to_string()]
+    });
+    req.iter().for_each(|x| {
+        if !does_file_exist(x) {
+            println!(
+                "{} \"{}\" {}",
+                "File or directory with path".red(),
+                x.red(),
+                "does not exist.".red(),
+            );
+            std::process::exit(1);
+        }
+
+        let path = if args.preserve_structure {
+            x.clone()
+        } else {
+            utils::parse_file_name(x)
+        };
+
+        files.insert(path, PathBuf::from(x).canonicalize().unwrap());
+    });
+
+    let entries = utils::construct_entry_builders(&files)
+        .iter()
+        .map(|x| db::insert_into_db(conn, x.to_owned()).expect("Could not insert into database"))
+        .collect::<Vec<_>>();
+
+    println!("Copied {} files", entries.len());
 }
 
 fn parse_range(range: String, s_files: &[db::Entry]) -> Vec<(String, PathBuf)> {
@@ -275,8 +202,7 @@ fn parse_range(range: String, s_files: &[db::Entry]) -> Vec<(String, PathBuf)> {
     files
 }
 
-/// Private async function to handle the paste command
-async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection) {
+pub async fn handle_paste(paste_config: ConstructedArgs, conn: &rusqlite::Connection) {
     let s_files = db::get_all(conn).expect("Could not get entries from database");
 
     let range = paste_config.range.clone();
@@ -430,7 +356,7 @@ async fn copy_paste(
     Ok(())
 }
 
-async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
+pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
     let mut entries = db::get_all(conn).expect("Could not get entries from database");
 
     sort_entries(&mut entries);
