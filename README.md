@@ -117,6 +117,27 @@ This makes ynk very fast. Moreover, it also shows you a clean progress bar while
 
 > 29,000 files in about 1.5 seconds.
 
+## Stuff Ynk can do that `cp` can't
+
+- It can respect your `.gitignore` file. So if you have a file or directory that is ignored by git, it won't be copied over.
+- Have a consistent store of files and directories that you copy over. You can list them, delete them, and paste them whenever you want.
+- Essentially, it's a clipboard for your files and directories.
+- It's fast. It uses multiple threads to do IO operations, so it's very fast.
+- Especially useful for handling very large projects with dependencies, think `node_modules` or `target` directories.
+- You can essentially combine multiple `cp` commands into one. You can copy over multiple files and directories, and then paste them all at once, in fact this is the recommended way to use ynk.
+- Hey, it's Rust. So it's fast and safe.
+- Essentially, it's a GUI like feature in the terminal.
+
+## What about the pasting?
+
+Pasting is at the core of this tool. The indexed files and directories are stored in a database. So when you paste, it will read the file's exact path from the database, and then read the file, and then write it to the current directory.
+If the path it is reading from is invalid, it will throw an error.
+
+The IO operation itself is powered by multiple threads, almost like a thread pool. So it's very fast. Every file IO is done in a separate thread. So it's very fast.
+The Reading and writing of the files is done in chunks powered by `tokio`'s fs module, maintaining safety and speed.
+
+The file tree is walked using `walkdir`, while making sure that it respects the `.gitignore` file. All of this is done parallely in a thread pool with a in memory static cache.
+
 ## License
 
 Ynk is licensed under the [MIT LICENSE](LICENSE).
