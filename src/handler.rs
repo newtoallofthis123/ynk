@@ -6,6 +6,8 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use clap::Command;
+use clap_complete::{generate, Shell};
 use colored::Colorize;
 use hashbrown::HashMap;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -457,4 +459,23 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
     println!("The entry {} can be popped", entries[0].path.blue(),);
 
     println!("Use ynk paste to paste the files");
+}
+
+fn map_to_shell(shell: &str) -> Shell {
+    match shell {
+        "fish" => Shell::Fish,
+        "bash" => Shell::Bash,
+        "zsh" => Shell::Zsh,
+        "powershell" => Shell::PowerShell,
+        _ => Shell::Bash,
+    }
+}
+
+pub fn handle_completions(command: &mut Command, shell: String) {
+    let sh = map_to_shell(&shell);
+    let mut res: Vec<u8> = Vec::new();
+    generate(sh, command, command.get_name().to_string(), &mut res);
+
+    let completions = String::from_utf8_lossy(&res).to_string();
+    println!("{}", completions);
 }

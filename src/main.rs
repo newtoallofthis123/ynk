@@ -105,7 +105,23 @@ async fn main() {
                         .short('d')
                         .action(ArgAction::SetTrue),
                 )
-                .arg(Arg::new("range").long("range").help("Specify the range of entries to paste: Works using the syntax of n..[m]").short('r').num_args(1)),
+                .arg(
+                    Arg::new("files")
+                        .help("The list of files to add")
+                        .num_args(1..)
+                        .value_name("FILES")
+                )
+                .arg(
+                    Arg::new("range").long("range").help("Specify the range of entries to paste: Works using the syntax of n..[m]").short('r').num_args(1)
+                ),
+        ).subcommand(Command::new("completions")
+                .arg(
+                    Arg::new("shell")
+                        .help("The list of files to add")
+                        .num_args(1)
+                        .value_name("SHELL")
+                        .required(true)
+                ).long_about("Generate and write completions")
         );
 
     let matches = cmd.clone().get_matches();
@@ -189,9 +205,20 @@ async fn main() {
             if let Some(range) = m.get_one::<String>("range") {
                 args.range = Some(range.clone());
             }
+            if let Some(files) = m.get_many::<String>("files") {
+                args.files = Some(files.map(|s| s.to_string()).collect::<Vec<String>>());
+            }
             args.specific = None;
 
+            //TODO: Handle files as search queries
             handler::handle_paste(args, &conn).await;
+        }
+        Some("completions") => {
+            let m = matches.subcommand_matches("completions").unwrap();
+            let mut c = cmd.clone();
+            if let Some(shell) = m.get_one::<String>("shell") {
+                handler::handle_completions(&mut c, shell.to_string());
+            }
         }
         Some("delete") => {
             let m = matches.subcommand_matches("delete").unwrap();
@@ -204,6 +231,6 @@ async fn main() {
         Some(_) => {}
         None => {
             let _ = cmd.print_help();
-        },
+        }
     }
 }
