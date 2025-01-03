@@ -397,6 +397,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
     #[allow(unused_assignments)]
     let mut table = String::new();
 
+    let mut total_size = 0.0;
     if paste_config.calculate_size {
         let mut display_contents = Vec::new();
         entries.iter().for_each(|x| {
@@ -413,6 +414,8 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
             } else {
                 size = PathBuf::from(x.path.clone()).metadata().unwrap().len() as f64;
             }
+
+            total_size += size;
 
             display_contents.push(DisplayFiles {
                 id: x.id as usize,
@@ -449,6 +452,12 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
 
     println!("{}", table);
 
+    if paste_config.calculate_size {
+        println!(
+            "Total size of {} kept track",
+            utils::convert_size(total_size).green()
+        );
+    }
     println!("The entry {} can be popped", entries[0].path.blue(),);
 
     println!("Use ynk paste to paste the files");
