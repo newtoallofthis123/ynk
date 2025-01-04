@@ -18,7 +18,7 @@ use tabled::{
 use tokio::{sync::Mutex, task};
 
 use crate::{
-    db,
+    db::{self, Entry},
     utils::{self, deep_search, does_file_exist, list_dir, sort_entries, ListDirConfig},
     ConstructedArgs,
 };
@@ -161,7 +161,7 @@ pub async fn handle_add(args: ConstructedArgs, conn: &rusqlite::Connection) {
         files.insert(path, PathBuf::from(x).canonicalize().unwrap());
     });
 
-    let entries = utils::construct_entry_builders(&files)
+    let entries = utils::construct_entry_builders(&files, args.dir)
         .iter()
         .map(|x| db::insert_into_db(conn, x.to_owned()).expect("Could not insert into database"))
         .collect::<Vec<_>>();
@@ -169,7 +169,7 @@ pub async fn handle_add(args: ConstructedArgs, conn: &rusqlite::Connection) {
     println!("Copied {} files", entries.len());
 }
 
-fn parse_range(range: String, s_files: &[db::Entry]) -> Vec<(String, PathBuf)> {
+fn parse_range(range: String, s_files: &[db::Entry]) -> Vec<Entry> {
     let mut files = Vec::new();
     if range.contains("..") {
         let range = range.split("..").collect::<Vec<&str>>();
@@ -177,7 +177,7 @@ fn parse_range(range: String, s_files: &[db::Entry]) -> Vec<(String, PathBuf)> {
         let end = range[1].parse::<usize>().unwrap();
         for i in start..=end {
             let entry = s_files.iter().find(|x| x.id as usize == i).unwrap();
-            files.push(utils::wrap_from_entry(entry));
+            files.push(entry.clone());
         }
     } else {
         let ids = range
@@ -186,7 +186,7 @@ fn parse_range(range: String, s_files: &[db::Entry]) -> Vec<(String, PathBuf)> {
             .collect::<Vec<usize>>();
         for i in ids {
             let entry = s_files.iter().find(|x| x.id as usize == i).unwrap();
-            files.push(utils::wrap_from_entry(entry));
+            files.push(entry.clone());
         }
     };
 
@@ -208,10 +208,10 @@ pub async fn handle_paste(
         s_files
             .iter()
             .filter(|e| e.path == specific_path)
-            .map(utils::wrap_from_entry)
+            .cloned()
             .collect()
     } else {
-        s_files.iter().map(utils::wrap_from_entry).collect()
+        s_files
     };
 
     let user_target = output.unwrap_or_else(|| ".".to_string()).clone();
@@ -225,20 +225,23 @@ pub async fn handle_paste(
         respect_ignore: paste_config.ignore,
     });
 
+    // TODO: Port this functionality to a struct
     let mut final_files = HashMap::new();
     let mut file_sizes = 0.0;
 
-    files.iter().for_each(|(name, path)| {
+    files.iter().for_each(|e| {
+        let path = PathBuf::from(e.path.clone());
+        let og_name = e.name.clone();
         if path.is_dir() {
             let (entries, got_size) =
                 list_dir(path.to_str().unwrap(), LIST_DIR_CONFIG.get().unwrap());
             file_sizes += got_size;
             final_files.extend(entries.iter().map(|x| {
-                let (name, path) = utils::wrap_from_path(path, x);
-                (name, path)
+                let (name, path) = utils::wrap_from_path(&path, x);
+                (name, (path, e.is_dir, og_name.clone()))
             }));
         } else {
-            final_files.insert(name.clone(), path.clone());
+            final_files.insert(og_name.clone(), (path.clone(), false, og_name));
         }
     });
 
@@ -249,23 +252,29 @@ pub async fn handle_paste(
             .progress_chars("#>-"),
     )));
 
-    let tasks = final_files.iter().map(|(name, path)| {
-        if !PathBuf::from(user_target.clone()).exists() {
-            println!("{}", "Target directory does not exist".yellow());
-            println!("Creating the directory");
-            std::fs::create_dir(&user_target).expect("Could not create directory");
-        }
-        let target_file = PathBuf::from(user_target.clone()).join(name);
-        let pb_clone = Arc::clone(&pb);
+    let tasks = final_files
+        .iter()
+        .map(|(name, (path, consider_dir, dir_name))| {
+            if !PathBuf::from(user_target.clone()).exists() {
+                println!("{}", "Target directory does not exist".yellow());
+                println!("Creating the directory");
+                std::fs::create_dir(&user_target).expect("Could not create directory");
+            }
+            let mut target_file = PathBuf::from(user_target.clone());
+            if *consider_dir {
+                target_file = target_file.join(dir_name);
+            }
+            target_file = target_file.join(name);
+            let pb_clone = Arc::clone(&pb);
 
-        // Spawn a new asynchronous task for each file copy operation
-        task::spawn(copy_paste(
-            pb_clone,
-            path.clone(),
-            target_file.clone(),
-            paste_config.overwrite,
-        ))
-    });
+            // Spawn a new asynchronous task for each file copy operation
+            task::spawn(copy_paste(
+                pb_clone,
+                path.clone(),
+                target_file.clone(),
+                paste_config.overwrite,
+            ))
+        });
 
     match futures::future::try_join_all(tasks).await {
         Ok(res) => {
@@ -294,13 +303,13 @@ pub async fn handle_paste(
                 utils::convert_size(file_sizes).to_string().green()
             );
 
-            files.iter().for_each(|(_, path)| {
+            files.iter().for_each(|e| {
                 // update access time
-                db::update_accessed_at(conn, path.to_str().unwrap())
+                db::update_accessed_at(conn, e.path.as_str())
                     .expect("Could not update access time");
 
                 if paste_config.delete {
-                    db::delete_entry(conn, path.to_str().unwrap()).expect("Unable to delete entry");
+                    db::delete_entry(conn, e.path.as_str()).expect("Unable to delete entry");
                 }
             });
             if paste_config.delete {
@@ -370,6 +379,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
         path: String,
         count: usize,
         size: String,
+        is_dir: bool,
         last_accessed: String,
     }
 
@@ -422,6 +432,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
                 name: x.name.clone(),
                 path: x.path.clone(),
                 count: file_count,
+                is_dir: x.is_dir,
                 size: utils::convert_size(size),
                 last_accessed: x.accessed_at.to_rfc2822(),
             });

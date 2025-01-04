@@ -122,11 +122,11 @@ pub fn list_dir(dir_path: &str, config: &ListDirConfig) -> (Vec<PathBuf>, f64) {
 
 /// Constructs a vector of `EntryBuilder`s
 /// from a `HashMap` of `PathBuf`s
-pub fn construct_entry_builders(map: &HashMap<String, PathBuf>) -> Vec<EntryBuilder> {
+pub fn construct_entry_builders(map: &HashMap<String, PathBuf>, is_dir: bool) -> Vec<EntryBuilder> {
     let mut builders = Vec::new();
 
     for (name, path) in map {
-        let builder = EntryBuilder::new(name, path.to_str().unwrap(), path.is_dir());
+        let builder = EntryBuilder::new(name, path.to_str().unwrap(), is_dir);
         builders.push(builder);
     }
 
