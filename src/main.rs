@@ -43,6 +43,7 @@ async fn main() {
                 Arg::new("size")
                     .id("size")
                     .long("size")
+                    .short('s')
                     .help("Calculate and show the size column")
                     .action(ArgAction::SetTrue),
             ).long_about("List the entires in the store"),

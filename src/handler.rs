@@ -388,7 +388,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
         id: usize,
         name: String,
         path: String,
-        last_accessed: String,
+        is_dir: bool,
     }
 
     let mut paste_config = args;
@@ -450,7 +450,7 @@ pub async fn handle_list(args: ConstructedArgs, conn: &rusqlite::Connection) {
                 id: x.id as usize,
                 name: x.name.clone(),
                 path: x.path.clone(),
-                last_accessed: x.accessed_at.to_rfc2822(),
+                is_dir: x.is_dir,
             });
             count += 1;
         });
