@@ -1,7 +1,6 @@
-use clap::{command, Arg, ArgAction, Command};
 use config::{get_config_from_file, write_default_config, ConstructedArgs};
 use files::get_config_path;
-use utils::{check_version, print_splash_screen};
+use utils::{check_version, print_splash_screen, setup_cli};
 
 mod config;
 mod db;
@@ -11,134 +10,7 @@ mod utils;
 
 #[tokio::main]
 async fn main() {
-    let mut cmd = command!()
-        .author("NoobScience <noobscience@duck.com>")
-        .about("Copy paste files in the terminal")
-        .arg(
-            Arg::new("noignore")
-                .short('n')
-                .help("Don't respect the .gitignore")
-                .long("noignore")
-                .global(true)
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("yes")
-                .short('y')
-                .help("Prompt yes to all prompts")
-                .long("yes")
-                .global(true)
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new("all")
-                .short('a')
-                .long("all")
-                .help("Also include hidden files in discovery")
-                .global(true)
-                .action(ArgAction::SetTrue),
-        )
-        .subcommand(
-            Command::new("list").arg(
-                Arg::new("size")
-                    .id("size")
-                    .long("size")
-                    .short('s')
-                    .help("Calculate and show the size column")
-                    .action(ArgAction::SetTrue),
-            ).long_about("List the entires in the store"),
-        )
-        .subcommand(
-            Command::new("add")
-                .arg(
-                    Arg::new("dir")
-                        .help("Set sign as a dir")
-                        .long("dir")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("preserve-structure")
-                        .long("preserve")
-                        .help("Preserves the dir structure")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("files")
-                        .help("The list of files to add")
-                        .num_args(1..)
-                        .value_name("FILES"),
-                ).long_about("Add entries to the store"),
-        )
-        .subcommand(
-            Command::new("delete").long_about("Delete entries from the ynk store").arg(
-                Arg::new("queries")
-                    .help("The queries to file the entries")
-                    .num_args(1..)
-                    .value_name("QUERIES"),
-            ),
-        )
-        .subcommand(
-            Command::new("pop")
-                .long_about("Pop the last entry in the ynk store")
-                .arg(
-                    Arg::new("overwrite")
-                        .long("overwrite")
-                        .help("Overwrite existing files")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("output")
-                        .long("output")
-                        .short('o')
-                        .help("The output dir or file")
-                        .num_args(1)
-                )
-                .arg(Arg::new("strict").help("Error on any IO error").long("strict").action(ArgAction::SetTrue)),
-        )
-        .subcommand(Command::new("clear").long_about("Clear all entries from the ynk store"))
-        .subcommand(
-            Command::new("paste")
-                .long_about("Paste entries from the ynk store")
-                .arg(
-                    Arg::new("overwrite")
-                        .long("overwrite")
-                        .help("Overwrite existing files")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(Arg::new("strict").help("Error on any IO error").long("strict").action(ArgAction::SetTrue))
-                .arg(
-                    Arg::new("delete")
-                        .long("delete")
-                        .help("Delete the entry from the store after pasting")
-                        .short('d')
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("output")
-                        .long("output")
-                        .short('o')
-                        .help("The output dir or file")
-                        .num_args(1)
-                )
-                .arg(
-                    Arg::new("queries")
-                        .help("Queries to filter the entires")
-                        .num_args(1..)
-                        .value_name("QUERIES")
-                )
-                .arg(
-                    Arg::new("range").long("range").help("Specify the range of entries to paste: Works using the syntax of n..[m]").short('r').num_args(1)
-                ),
-        ).subcommand(Command::new("completions")
-                .arg(
-                    Arg::new("shell")
-                        .help("The list of files to add")
-                        .num_args(1)
-                        .value_name("SHELL")
-                        .required(true)
-                ).long_about("Generate and write completions")
-        );
-
+    let mut cmd = setup_cli();
     let matches = cmd.clone().get_matches();
 
     if !get_config_path().exists() {
